@@ -115,39 +115,81 @@ class TestWidget(QtW.QWidget):
 
 # Define the QSS template
 QSS_TEMPLATE = """
+/* --------------------------------------- */
 
-QPushButton {{
-    background-color: {button};
-    color: {button_text};
+QLineEdit, QAbstractSpinBox, QPushButton, QComboBox {{
+    border: 0.5px solid {mid};
+    placeholder-text-color: {placeholder_text};
+}}
+
+
+/* --------------------------------------- */
+
+/* border-gradient */
+
+QPushButton, QComboBox {{
     height: 20px;
+    background-color: {button};
     border-radius: 6px;
-    border: 0.5px solid #2C2C2C;
     border-top-color: #848484;
     border-bottom-color: #272727;
+    selection-background-color: {highlight};
 }}
 
 QPushButton::pressed {{
     background-color: #7B7B7B;
 }}
 
+/* --------------------------------------- */
 
-QComboBox {{
-    background-color: {button};
-    color: {button_text};
-    height: 20px;
-    border-radius: 4px;
+
+QComboBox::drop-down:button {{
+    border-radius:4px;
+    background: {highlight};
 }}
 
 QComboBox::drop-down:button {{
-    background:none;
+    border-radius: 4px;
+    margin: 1.5px;
+    width: 14px;
+    background-color: {highlight};
 }}
 
 QComboBox::down-arrow {{
     image: url(/Users/talley/Downloads/fluent--chevron-up-down-16-filled.svg);
-    border: 0px;
-    padding: 0px;
-    margin: 0px;
 }}
+
+/* --------------------------------------- */
+
+QSlider::add-page {{
+    background-color: #474747;
+}}
+
+QSlider::groove, QSlider::add-page {{
+    border: 0px;
+    border-radius: 2px;
+}}
+
+QSlider::groove::horizontal {{
+    height: 4px;
+}}
+
+QSlider::groove::vertical {{
+    width: 4px;
+}}
+
+QSlider::groove {{
+    background: {highlight};
+}}
+
+QSlider::handle {{
+    background: #9A9493;
+    border: 0.5px solid {mid};
+    width: 18px;
+    margin: -8px 0;
+    border-radius: 10px;
+}}
+
 
 """
 
