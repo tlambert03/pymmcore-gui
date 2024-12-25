@@ -183,14 +183,17 @@ class Palette:
 
     def to_qpalette(self) -> QPalette:
         """Convert to a QPalette."""
-        from PyQt6.QtGui import QColor, QPalette
+        from PyQt6.QtGui import QColor, QGuiApplication
 
-        qpalette = QPalette()
+        qpalette = QGuiApplication.palette()
         for group in ("active", "inactive", "disabled"):
-            qgroup = getattr(QPalette.ColorGroup, group.capitalize())
+            qgroup = getattr(qpalette.ColorGroup, group.capitalize())
             for field_ in fields(ColorGroup):
                 role_name = cast("ColorRoleName", field_.name)
-                qrole = getattr(QPalette.ColorRole, _to_camel_case(role_name))
+                try:
+                    qrole = getattr(qpalette.ColorRole, _to_camel_case(role_name))
+                except AttributeError:
+                    continue
                 color = self.color(group, role_name)
                 qpalette.setColor(qgroup, qrole, QColor(color))
         return qpalette
@@ -243,9 +246,11 @@ MACOS_DARK = Palette(
         tool_tip_text="#000000",
         placeholder_text="#ffffff",
         text="#ffffff",
-        button="#323232",
+        # button="#323232", # from Qt
+        button="#656565",  # measured
         button_text="#ffffff",
-        bright_text="#373737",
+        # bright_text="#373737", # from Qt
+        bright_text="#E7E7E7",  # measured
         light="#373737",
         midlight="#343434",
         mid="#242424",
