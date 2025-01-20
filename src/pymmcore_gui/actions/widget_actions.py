@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, cast
 
 from pymmcore_plus import CMMCorePlus
 from PyQt6.QtCore import Qt
+from PyQt6.QtWidgets import QVBoxLayout, QWidget
 
 from pymmcore_gui.actions._action_info import ActionKey
 
@@ -17,7 +18,6 @@ if TYPE_CHECKING:
 
     import pymmcore_widgets as pmmw
     from PyQt6.QtCore import QObject
-    from PyQt6.QtWidgets import QWidget
 
     from pymmcore_gui._main_window import MicroManagerGUI
     from pymmcore_gui.widgets._mm_console import MMConsole
@@ -54,7 +54,11 @@ def create_mm_console(parent: QWidget) -> MMConsole:
     """Create a console widget."""
     from pymmcore_gui.widgets._mm_console import MMConsole
 
-    return MMConsole(parent=parent)
+    wdg = QWidget(parent=parent)
+    layout = QVBoxLayout(wdg)
+    layout.setContentsMargins(0, 0, 0, 0)
+    layout.addWidget(MMConsole(parent=wdg))
+    return wdg
 
 
 def create_install_widgets(parent: QWidget) -> pmmw.InstallWidget:
