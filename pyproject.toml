@@ -4,8 +4,9 @@ requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
 
 # https://hatch.pypa.io/latest/config/metadata/
-[tool.hatch.version]
-source = "vcs"
+[tool.hatch]
+version = {source = "vcs"}
+metadata = {"allow-direct-references" = true}
 
 # read more about configuring hatch at:
 # https://hatch.pypa.io/latest/config/build/
@@ -36,7 +37,7 @@ classifiers = [
     "Typing :: Typed",
 ]
 dependencies = [
-    "ndv[vispy]==0.0.4",
+    "ndv[vispy] @ git+https://github.com/tlambert03/ndv.git@pymmcore-integration",
     "pymmcore-plus[cli]>=0.13.0",
     "pymmcore-nano",
     "pymmcore-widgets>=0.9.0",
