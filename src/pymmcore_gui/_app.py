@@ -1,30 +1,33 @@
 from __future__ import annotations
 
 import argparse
+import importlib
+import importlib.util
 import os
 import sys
 import traceback
 from contextlib import suppress
-from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from PyQt6.QtCore import pyqtSignal
 from PyQt6.QtGui import QIcon
 from PyQt6.QtWidgets import QApplication
 from superqt.utils import WorkerBase
 
-from pymmcore_gui import MicroManagerGUI, __version__
+from pymmcore_gui import __version__
+from pymmcore_gui._main_window import ICON, MicroManagerGUI
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
     from types import TracebackType
+
+    ExcTuple = tuple[type[BaseException], BaseException, TracebackType | None]
 
 APP_NAME = "Micro-Manager GUI"
 APP_VERSION = __version__
 ORG_NAME = "pymmcore-plus"
 ORG_DOMAIN = "pymmcore-plus"
 APP_ID = f"{ORG_DOMAIN}.{ORG_NAME}.{APP_NAME}.{APP_VERSION}"
-ICON = Path(__file__).parent / "logo.png"
 IS_FROZEN = getattr(sys, "frozen", False)
 
 
@@ -70,7 +73,7 @@ def parse_args(args: Sequence[str] = ()) -> argparse.Namespace:
     return parser.parse_args(args)
 
 
-def main() -> None:
+def main() -> MMQApplication:
     """Run the Micro-Manager GUI."""
     args = parse_args()
 
@@ -82,16 +85,30 @@ def main() -> None:
     # FIXME: be better...
     try:
         if args.config:
-            win.mmc.loadSystemConfiguration(args.config)
+            win.mmcore.loadSystemConfiguration(args.config)
         else:
-            win.mmc.loadSystemConfiguration()
+            win.mmcore.loadSystemConfiguration()
     except Exception as e:
         print(f"Failed to load system configuration: {e}")
 
-    win.showMaximized()
     win.show()
 
+    splsh = "_PYI_SPLASH_IPC" in os.environ and importlib.util.find_spec("pyi_splash")
+    if splsh:  # pragma: no cover
+        import pyi_splash  # pyright: ignore [reportMissingModuleSource]
+
+        pyi_splash.update_text("UI Loaded ...")
+        pyi_splash.close()
+
     app.exec()
+
+    # NOTE:
+    # the fact that we're returning the app instance after exec() is a little odd.
+    # it's there for testing so that `test_app::test_main_app` can retain a reference
+    # to the application for the scope of the test.
+    # I also tried retaining a global app reference within this module, but that led
+    # to consistent segfaults for reasons I don't understand.
+    return app
 
 
 # ------------------- Custom excepthook -------------------
@@ -140,9 +157,10 @@ def _print_exception(
         traceback.print_exception(exc_type, value=exc_value, tb=exc_traceback)
 
 
-EXCEPTION_LOG: list[
-    tuple[type[BaseException], BaseException, TracebackType | None]
-] = []
+# This log list is used by the ExceptionLog widget
+# Be aware that it's currently possible for that widget to clear this list.
+# If an immutable record of exceptions is needed, additional logic will be required.
+EXCEPTION_LOG: list[ExcTuple] = []
 
 
 def ndv_excepthook(
@@ -160,13 +178,16 @@ def ndv_excepthook(
         (debugpy := sys.modules.get("debugpy"))
         and debugpy.is_client_connected()
         and ("pydevd" in sys.modules)
-    ):
+    ):  # pragma: no cover
         with suppress(Exception):
             import threading
 
-            import pydevd
+            import pydevd  # pyright: ignore [reportMissingImports]
 
-            py_db = pydevd.get_global_debugger()
+            if (py_db := pydevd.get_global_debugger()) is None:
+                return
+
+            py_db = cast("pydevd.PyDB", py_db)
             thread = threading.current_thread()
             additional_info = py_db.set_additional_thread_info(thread)
             additional_info.is_tracing += 1

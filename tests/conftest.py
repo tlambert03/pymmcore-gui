@@ -18,6 +18,8 @@ import pytest
 from pymmcore_plus import CMMCorePlus, configure_logging
 from pymmcore_plus.core import _mmcore_plus
 
+from pymmcore_gui import _app
+
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
@@ -29,13 +31,19 @@ TEST_CONFIG = str(Path(__file__).parent / "test_config.cfg")
 configure_logging(stderr_level="CRITICAL")
 
 
+@pytest.fixture(scope="session")
+def qapp_cls() -> type[QApplication]:
+    return _app.MMQApplication
+
+
 # to create a new CMMCorePlus() for every test
 @pytest.fixture(autouse=True)
-def global_mmcore() -> Iterator[CMMCorePlus]:
+def mmcore() -> Iterator[CMMCorePlus]:
     mmc = CMMCorePlus()
     mmc.loadSystemConfiguration(TEST_CONFIG)
     with patch.object(_mmcore_plus, "_instance", mmc):
         yield mmc
+    mmc.waitForSystem()
 
 
 @pytest.fixture()

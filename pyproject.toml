@@ -36,34 +36,51 @@ classifiers = [
     "Typing :: Typed",
 ]
 dependencies = [
-    "ndv[vispy]==0.0.4",
-    "pymmcore-plus[cli]>=0.12.0",
-    "pymmcore-widgets>=0.8.0",
+    "ndv[pygfx]>=0.2.2",
+    "pydantic-settings>=2.7.1",
+    "pymmcore-plus[cli]>=0.13.2",
+    "pymmcore-widgets>=0.9.0",
     "PyQt6==6.7.1",
+    "pyright>=1.1.393",
     "pyyaml>=6.0.2",
     "qtconsole>=5.6.1",
     "rich",                         # also in pymmcore-plus[cli] above
-    "superqt[cmap,iconify]>=0.7.0",
+    "superqt[cmap,iconify]>=0.7.1",
     "tifffile>=2024.12.12",
     "tqdm>=4.67.1",
-    "zarr>=2.18.3",
+    "zarr>=2.18.3,<3.0",
 ]
 
+# TO USE pymmcore-nano, you need to add pymmcore-nano to dependencies
+# and uncomment the override-dependencies line below
+# currently, pymmcore-nano has some issues related to threading that need to be solved
+# 
+# "pymmcore-nano",
+# [tool.uv]
+# override-dependencies = ["pymmcore ;  sys_platform == 'never'"]
+
 [dependency-groups]
-# careful ... 
-# having pdbpp in the environment will break the console in the bundled app
 dev = [
     "ipython>=8.30.0",
     "mypy>=1.13.0",
     "pre-commit>=4.0.1",
+    "pyautogui>=0.9.54",
     "pyinstaller>=6.11.1",
+    "pyright>=1.1.392.post0",
     "pytest>=8.3.4",
     "pytest-cov>=6.0.0",
     "pytest-qt>=4.4.0",
     "rich>=13.9.4",
     "ruff>=0.8.3",
     "rust-just>=1.38.0",
+    "types-pyautogui>=0.9.3.20241230",
+    "types-pygments>=2.19.0.20250107",
+    "types-pyinstaller>=6.11.0.20241028",
+    "types-pyyaml>=6.0.12.20241230",
 ]
+
+[tool.hatch.metadata]
+allow-direct-references = true
 
 # same as console_scripts entry point
 [project.scripts]
@@ -114,13 +131,24 @@ skip-magic-trailing-comma = false # default is false
 
 # https://mypy.readthedocs.io/en/stable/config_file.html
 [tool.mypy]
-files = "src/**/"
+files = "src/**/*.py"
 strict = true
 disallow_any_generics = false
 disallow_subclassing_any = false
 show_error_codes = true
 pretty = true
 plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+module = ["qtconsole.*", "pydevd.*", "pygfx.*", "rendercanvas.*"]
+ignore_missing_imports = true
+
+[tool.pyright]
+include = ["src", "tests"]
+pythonVersion = "3.10"
+enableExperimentalFeatures = true
+verboseOutput = true
+venv = ".venv"
 
 # https://docs.pytest.org/
 [tool.pytest.ini_options]
