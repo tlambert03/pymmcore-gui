@@ -1,4 +1,5 @@
 version = 1
+revision = 1
 requires-python = ">=3.10"
 resolution-markers = [
     "python_full_version >= '3.13'",
@@ -1127,6 +1128,7 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/df/36/0017e838d3c63081a64e6d2252c8dda368a6d0898c7ecf689ba678fe4127/psygnal-0.12.0-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:7a67ec8e0c8a6553dd56ed653f87c46ef652b0c512bb8c8f8c5adcff3907751f", size = 785239 },
     { url = "https://files.pythonhosted.org/packages/67/d0/7057151debcd5c7d8ce7789d276e18681d5c141c9222c9cf99ce3a418680/psygnal-0.12.0-cp313-cp313-musllinux_1_2_x86_64.whl", hash = "sha256:742abb2d0e230521b208161eeab06abb682a19239e734e543a269214c84a54d2", size = 779690 },
     { url = "https://files.pythonhosted.org/packages/5e/ae/a3d6815db583b6d05878b3647ea0e2aa21ce6941d03c9d2c6caad1afbcf6/psygnal-0.12.0-cp313-cp313-win_amd64.whl", hash = "sha256:d779f20c6977ec9d5b9fece23b4b28bbcf0a7773539a4a176b5527aea5da27c7", size = 382622 },
+    { url = "https://files.pythonhosted.org/packages/eb/fa/84fc30ad391081cb119099aae5491ba4a9ebd34ce5139bf05b31813abb84/psygnal-0.12.0-py3-none-any.whl", hash = "sha256:15f39abd8bee2926e79da76bec31a258d03dbe3e61d22d6251f65caefbae5d54", size = 78492 },
 ]
 
 [[package]]
@@ -1412,6 +1414,7 @@ dependencies = [
     { name = "pymmcore-plus", extra = ["cli"] },
     { name = "pymmcore-widgets" },
     { name = "pyqt6" },
+    { name = "pyqt6ads" },
     { name = "pyright" },
     { name = "pyyaml" },
     { name = "qtconsole" },
@@ -1450,6 +1453,7 @@ requires-dist = [
     { name = "pymmcore-plus", extras = ["cli"], specifier = ">=0.13.2" },
     { name = "pymmcore-widgets", specifier = ">=0.9.0" },
     { name = "pyqt6", specifier = "==6.7.1" },
+    { name = "pyqt6ads", specifier = ">=4.3.1" },
     { name = "pyright", specifier = ">=1.1.393" },
     { name = "pyyaml", specifier = ">=6.0.2" },
     { name = "qtconsole", specifier = ">=5.6.1" },
@@ -1635,6 +1639,21 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/20/1a/5c6fcae85edb65cf236c9dc6d23b279b5316e94cdca1abdee6d0a217ddbb/PyQt6_sip-13.10.0-cp313-cp313-manylinux_2_5_x86_64.manylinux1_x86_64.whl", hash = "sha256:757ac52c92b2ef0b56ecc7cd763b55a62d3c14271d7ea8d03315af85a70090ff", size = 303407 },
     { url = "https://files.pythonhosted.org/packages/b9/db/6924ec985be7d746772806b96ab81d24263ef72f0249f0573a82adaed75e/PyQt6_sip-13.10.0-cp313-cp313-win_amd64.whl", hash = "sha256:571900c44a3e38738d696234d94fe2043972b9de0633505451c99e2922cb6a34", size = 53580 },
     { url = "https://files.pythonhosted.org/packages/77/c3/9e44729b582ee7f1d45160e8c292723156889f3e38ce6574f88d5ab8fa02/PyQt6_sip-13.10.0-cp313-cp313-win_arm64.whl", hash = "sha256:39cba2cc71cf80a99b4dc8147b43508d4716e128f9fb99f5eb5860a37f082282", size = 45446 },
+]
+
+[[package]]
+name = "pyqt6ads"
+version = "4.3.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pyqt6" },
+    { name = "pyqt6-sip" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/2a/7e/7e7d347f51383472f3f69a6910a1f31795ea746a955b99f1ec596007bcf0/pyqt6ads-4.3.1.tar.gz", hash = "sha256:ab4ab24e2e7d38c03dbda37fbfd4fc6cb66685803980eac72800f4d908a8aa99", size = 51168103 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d2/ea/c025b0601264374641a595c88cd3b93e1ae510aef3229356a99986f41a54/PyQt6Ads-4.3.1-cp39-abi3-macosx_10_14_x86_64.whl", hash = "sha256:bc355061136ccd6f5664cc7f971749d5c097f7a62803e5ae9144c3f3fb624764", size = 355688 },
+    { url = "https://files.pythonhosted.org/packages/90/d1/410ce1f30871d2f6952cbe9e6f81c46749b91366697814ee69f2c7a05df7/PyQt6Ads-4.3.1-cp39-abi3-macosx_11_0_arm64.whl", hash = "sha256:d9ea382187616cc6a6c32504a617989aeb2510ab90f8b12beb034f8754ccd621", size = 338159 },
+    { url = "https://files.pythonhosted.org/packages/5b/e6/e97ed4c1c9c9f0586b9ef151f13b70a914ea5f060fda7d85a9ae43a8917c/PyQt6Ads-4.3.1-cp39-abi3-win_amd64.whl", hash = "sha256:608fe6a132d8858d5eadddd18eedb82dad6ee0fdc04c21b17e86709d6a947d30", size = 387664 },
 ]
 
 [[package]]

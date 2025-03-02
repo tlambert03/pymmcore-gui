@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Literal, cast, overload
 from weakref import WeakValueDictionary
 
+import PyQt6Ads as QtAds
 from pymmcore_plus import CMMCorePlus
 from pymmcore_widgets import ConfigWizard
 from PyQt6.QtCore import QEvent, QObject, Qt, QTimer
@@ -18,7 +19,6 @@ from PyQt6.QtWidgets import (
     QMenu,
     QMenuBar,
     QToolBar,
-    QVBoxLayout,
     QWidget,
 )
 
@@ -155,11 +155,17 @@ class MicroManagerGUI(QMainWindow):
 
         # LAYOUT ======================================
 
-        central_wdg = QWidget(self)
-        self.setCentralWidget(central_wdg)
+        # Create the dock manager. Because the parent parameter is a QMainWindow
+        # the dock manager registers itself as the central widget.
+        self.dock_manager = QtAds.CDockManager(self)
 
-        layout = QVBoxLayout(central_wdg)
-        layout.addWidget(self._img_preview)
+        # central_wdg = QWidget(self)
+        # self.setCentralWidget(central_wdg)
+
+        # layout = QVBoxLayout(central_wdg)
+        dw = QtAds.CDockWidget("Viewers", self)
+        dw.setWidget(self._img_preview)
+        self.dock_manager.addDockWidget(QtAds.DockWidgetArea.CenterDockWidgetArea, dw)
 
         self._restore_state()
 
@@ -190,9 +196,9 @@ class MicroManagerGUI(QMainWindow):
             for action in menu_entry:
                 menu.addAction(self.get_action(action))
 
-    def closeEvent(self, a0: QCloseEvent | None) -> None:
+    def closeEvent(self, event: QCloseEvent) -> None:
         self._save_state()
-        return super().closeEvent(a0)
+        return super().closeEvent(event)
 
     def _restore_state(self) -> None:
         """Restore the state of the window from settings."""
@@ -218,11 +224,11 @@ class MicroManagerGUI(QMainWindow):
     def _save_state(self) -> None:
         """Save the state of the window to settings."""
         # save position and size of the main window
-        settings.window.geometry = self.saveGeometry().data()
+        settings.window.geometry = bytes(self.saveGeometry().data())
         # remember which widgets are open, and preserve their state.
         settings.window.initial_widgets = open_ = self._open_widgets()
         if open_:
-            settings.window.window_state = self.saveState().data()
+            settings.window.window_state = bytes(self.saveState().data())
         else:
             settings.window.window_state = None
         # write to disk, blocking up to 5 seconds
@@ -314,12 +320,13 @@ class MicroManagerGUI(QMainWindow):
 
             # If a dock area is specified, wrap the widget in a QDockWidget.
             if (dock_area := key.dock_area()) is not None:
-                dock = QDockWidget(key.value, self)
+                dock = QtAds.CDockWidget(key.value, self)
                 dock.setWidget(widget)
                 dock.setObjectName(f"docked_{key.name}")
                 self._link_widget_to_action(dock, key)
                 self._dock_widgets[key] = dock
-                self.addDockWidget(dock_area, dock)
+                dock_area = QtAds.DockWidgetArea.RightDockWidgetArea
+                self.dock_manager.addDockWidget(dock_area, dock)
             else:
                 self._link_widget_to_action(widget, key)
 
