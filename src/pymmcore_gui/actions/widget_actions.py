@@ -66,7 +66,7 @@ def create_mm_console(parent: QWidget) -> MMConsole:
     from pymmcore_gui.widgets._mm_console import MMConsole
 
     console = MMConsole(parent=parent)
-    console.shell.run_cell(
+    console.shell.run_cell(  # type: ignore
         "from pymmcore_gui.readers import TensorstoreZarrReader"
     )
     return console
