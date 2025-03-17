@@ -191,12 +191,15 @@ class MicroManagerGUI(QMainWindow):
         self.dock_manager = CDockManager(self)
 
         self._central = CDockWidget("Viewers", self)
-        self._central.setFeature(CDockWidget.DockWidgetFeature.NoTab, True)
         self._central.setWidget(self._img_preview)
         self._central_dock_area = self.dock_manager.setCentralWidget(self._central)
 
         self._restore_state()
-        # print(self._central_dock_area)
+
+        self._mmc.events.continuousSequenceAcquisitionStarted.connect(
+            self._on_live_mode
+        )
+        self.destroyed.connect(self._disconnect)
 
     def _on_system_config_loaded(self) -> None:
         if cfg := self._mmc.systemConfigurationFile():
@@ -430,3 +433,12 @@ class MicroManagerGUI(QMainWindow):
         dw = CDockWidget(f"ndv-{sha}")
         dw.setWidget(q_viewer)
         self.dock_manager.addDockWidgetTabToArea(dw, self._central_dock_area)
+
+    def _on_live_mode(self) -> None:
+        """Raise image preview widget when live mode is started."""
+        self._central.raise_()
+
+    def _disconnect(self) -> None:
+        self._mmc.events.continuousSequenceAcquisitionStarted.disconnect(
+            self._on_live_mode
+        )
