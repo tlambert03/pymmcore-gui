@@ -1,3 +1,6 @@
+# to use with thorlabs kinesis rotation stage
+# https://github.com/micro-manager/mmdev-ThorlabsKinesis
+
 from __future__ import annotations
 
 from typing import cast
