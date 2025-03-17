@@ -9,7 +9,7 @@ import useq
 from PyQt6.QtWidgets import QApplication, QWidget
 from useq import MDASequence
 
-from pymmcore_gui._ndv_viewers import NDVViewersManager
+from pymmcore_gui.widgets._ndv_viewers import NDVViewersManager
 
 if TYPE_CHECKING:
     from pymmcore_plus import CMMCorePlus
