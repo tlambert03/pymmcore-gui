@@ -2,6 +2,12 @@
 
 from importlib.metadata import PackageNotFoundError, version
 
+import pymmcore_plus.mda.handlers
+
+from .writers._patch_pymmcore_plus import handler_for_path
+
+pymmcore_plus.mda.handlers.handler_for_path = handler_for_path
+
 try:
     __version__ = version("pymmcore-gui")
 except PackageNotFoundError:

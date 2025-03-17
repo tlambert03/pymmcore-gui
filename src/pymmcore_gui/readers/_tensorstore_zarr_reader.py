@@ -10,7 +10,6 @@ import tensorstore as ts
 import useq
 from pymmcore_plus.metadata.serialize import json_loads
 from tifffile import imwrite
-from tqdm import tqdm
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -150,7 +149,7 @@ class TensorstoreZarrReader:
                 )
 
         index = self._get_axis_index(indexers)
-        data = cast(np.ndarray, self.store[index].read().result().squeeze())
+        data = cast("np.ndarray", self.store[index].read().result().squeeze())
         if metadata:
             meta = self._get_metadata_from_index(indexers)
             return data, meta
@@ -207,14 +206,12 @@ class TensorstoreZarrReader:
             if pos := len(self.sequence.stage_positions):
                 if not Path(path).exists():
                     Path(path).mkdir(parents=True, exist_ok=False)
-                with tqdm(total=pos) as pbar:
-                    for i in range(pos):
-                        data, metadata = self.isel({"p": i}, metadata=True)
-                        imwrite(Path(path) / f"p{i}.tif", data, imagej=True)
-                        # save metadata as json
-                        dest = Path(path) / f"p{i}.json"
-                        dest.write_text(json.dumps(metadata))
-                        pbar.update(1)
+                for i in range(pos):
+                    data, metadata = self.isel({"p": i}, metadata=True)
+                    imwrite(Path(path) / f"p{i}.tif", data, imagej=True)
+                    # save metadata as json
+                    dest = Path(path) / f"p{i}.json"
+                    dest.write_text(json.dumps(metadata))
 
     # ___________________________Private Methods___________________________
 

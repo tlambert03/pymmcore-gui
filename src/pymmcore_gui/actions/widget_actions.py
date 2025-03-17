@@ -65,7 +65,11 @@ def create_mm_console(parent: QWidget) -> MMConsole:
     """Create a console widget."""
     from pymmcore_gui.widgets._mm_console import MMConsole
 
-    return MMConsole(parent=parent)
+    console = MMConsole(parent=parent)
+    console.shell.run_cell(
+        "from pymmcore_gui.readers import TensorstoreZarrReader"
+    )
+    return console
 
 
 def create_install_widgets(parent: QWidget) -> pmmw.InstallWidget:

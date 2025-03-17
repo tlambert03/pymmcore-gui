@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import TYPE_CHECKING
-from warnings import warn
 
 from qtpy.QtCore import Qt, Signal
 from qtpy.QtWidgets import (
@@ -29,21 +28,14 @@ if TYPE_CHECKING:
 
 
 ZARR_TESNSORSTORE = "tensorstore-zarr"
-OME_ZARR = "ome-zarr"
-# OME_TIFF = "ome-tiff"
-TIFF_SEQ = "tiff-sequence"
 
 # dict with writer name and extension
 WRITERS: dict[str, list[str]] = {
     ZARR_TESNSORSTORE: [".tensorstore.zarr"],
-    OME_ZARR: [".ome.zarr"],
-    # OME_TIFF: [".ome.tif", ".ome.tiff"],
-    TIFF_SEQ: [""],
 }
 
 EXT_TO_WRITER = {x: w for w, exts in WRITERS.items() for x in exts}
 ALL_EXTENSIONS = [x for exts in WRITERS.values() for x in exts if x]
-DIRECTORY_WRITERS = {TIFF_SEQ}  # technically could be zarr too
 
 FILE_NAME = "Filename:"
 SUBFOLDER = "Subfolder:"
@@ -185,14 +177,6 @@ class SaveGroupBox(QGroupBox):
         name = self.save_name.text()
         if extension := _known_extension(name):
             self._writer_combo.setCurrentText(EXT_TO_WRITER[extension])
-
-        elif not allow_name_change:
-            if ext := Path(name).suffix:
-                warn(
-                    f"Invalid format {ext!r}. Defaulting to {TIFF_SEQ} writer.",
-                    stacklevel=2,
-                )
-            self._writer_combo.setCurrentText(TIFF_SEQ)
         elif name:
             # otherwise, if the name is not empty, add the first extension from the
             # current writer
@@ -213,7 +197,7 @@ class SaveGroupBox(QGroupBox):
         "Subfolder" or "Filename" depending on the writer type
         """
         # update the label
-        self.name_label.setText(SUBFOLDER if writer in DIRECTORY_WRITERS else FILE_NAME)
+        self.name_label.setText(FILE_NAME)
 
         # if the name currently end with a known extension from the selected
         # writer, then we're done
