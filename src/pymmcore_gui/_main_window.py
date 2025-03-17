@@ -27,9 +27,9 @@ from pymmcore_gui.actions.widget_actions import WidgetActionInfo
 from .actions import CoreAction, WidgetAction
 from .actions._action_info import ActionKey
 from .settings import settings
-from .widgets._ndv_viewers import NDVViewersManager
+from .widgets._ndv_mda_viewers_manager import NDVViewersManager
 from .widgets._toolbars import OCToolBar, ShuttersToolbar
-from .widgets.image_preview._ndv_preview import NDVPreview
+from .widgets.image_preview.ndv_preview import NDVPreview
 
 if TYPE_CHECKING:
     from collections.abc import Mapping

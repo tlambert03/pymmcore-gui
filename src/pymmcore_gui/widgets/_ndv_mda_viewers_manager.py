@@ -1,24 +1,105 @@
 from __future__ import annotations
 
+import json
+import sys
 import warnings
-from typing import TYPE_CHECKING
+from collections.abc import Hashable, Mapping, Sequence
+from typing import TYPE_CHECKING, Any, TypeGuard
 from weakref import WeakValueDictionary
 
 import ndv
+import numpy as np
 import useq
+from ndv import DataWrapper
 from pymmcore_plus.mda.handlers import TensorStoreHandler
 from PyQt6.QtCore import QObject, QTimer, pyqtSignal
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
-    import numpy as np
+    import tensorstore as ts
     from ndv.models._array_display_model import IndexMap
     from pymmcore_plus import CMMCorePlus
     from pymmcore_plus.mda import SupportsFrameReady
     from pymmcore_plus.metadata import FrameMetaV1, SummaryMetaV1
     from PyQt6.QtWidgets import QWidget
     from useq import MDASequence
+
+
+class TensorstoreWrapper(DataWrapper["ts.TensorStore"]):
+    """Wrapper for tensorstore.TensorStore objects."""
+
+    # NOTE: not using the one form ndv because the dtype property is not fixed yet
+
+    PRIORITY = 1
+
+    def __init__(self, data: Any) -> None:
+        super().__init__(data)
+
+        import tensorstore as ts
+
+        self._ts = ts
+
+        spec = self.data.spec().to_json()
+        dims: Sequence[Hashable] | None = None
+        self._ts = ts
+        if (tform := spec.get("transform")) and ("input_labels" in tform):
+            dims = [str(x) for x in tform["input_labels"]]
+        elif (
+            str(spec.get("driver")).startswith("zarr")
+            and (zattrs := self.data.kvstore.read(".zattrs").result().value)
+            and isinstance((zattr_dict := json.loads(zattrs)), dict)
+            and "_ARRAY_DIMENSIONS" in zattr_dict
+        ):
+            dims = zattr_dict["_ARRAY_DIMENSIONS"]
+
+        if isinstance(dims, Sequence) and len(dims) == len(self._data.domain):
+            self._dims: tuple[Hashable, ...] = tuple(str(x) for x in dims)
+            self._data = self.data[ts.d[:].label[self._dims]]
+        else:
+            self._dims = tuple(range(len(self._data.domain)))
+        self._coords: Mapping[Hashable, Sequence] = {
+            i: range(s)
+            for i, s in zip(self._dims, self._data.domain.shape, strict=False)
+        }
+
+    @property
+    def dtype(self) -> np.dtype:
+        """Return the dtype for the data."""
+        try:
+            return np.dtype(str(self._data.dtype.name))  # type: ignore
+        except AttributeError as e:
+            raise NotImplementedError(
+                "`dtype` property not properly implemented for DataWrapper of type: "
+                f"{type(self)}"
+            ) from e
+
+    @property
+    def dims(self) -> tuple[Hashable, ...]:
+        """Return the dimension labels for the data."""
+        return self._dims
+
+    @property
+    def coords(self) -> Mapping[Hashable, Sequence]:
+        """Return the coordinates for the data."""
+        return self._coords
+
+    def sizes(self) -> Mapping[Hashable, int]:
+        return dict(zip(self._dims, self._data.domain.shape, strict=False))
+
+    def isel(self, index: Mapping[int, int | slice]) -> np.ndarray:
+        if not index:
+            slc: slice | tuple = slice(None)
+        else:
+            slc = tuple(index.get(i, slice(None)) for i in range(len(self._data.shape)))
+        result = self._data[slc].read().result()
+        return np.asarray(result)
+
+    @classmethod
+    def supports(cls, obj: Any) -> TypeGuard[ts.TensorStore]:
+        if (ts := sys.modules.get("tensorstore")) and isinstance(obj, ts.TensorStore):
+            return True
+        return False
 
 
 # NOTE: we make this a QObject mostly so that the lifetime of this object is tied to

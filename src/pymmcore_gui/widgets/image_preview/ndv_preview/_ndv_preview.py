@@ -78,7 +78,7 @@ class NDVPreview(_ImagePreviewBase):
 
 @cache
 def _scope_img_numpy() -> np.ndarray:
-    resources = Path(__file__).parent.parent.parent / "resources"
+    resources = Path(__file__).parent.parent.parent.parent / "resources"
     qimage = QImage(str(resources / "logo.png"))
     qimage = qimage.convertToFormat(QImage.Format.Format_RGBA8888)
     width, height = qimage.width(), qimage.height()
