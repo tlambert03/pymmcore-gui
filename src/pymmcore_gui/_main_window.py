@@ -190,7 +190,7 @@ class MicroManagerGUI(QMainWindow):
         )
         self.dock_manager = CDockManager(self)
 
-        self._central = CDockWidget("Viewers", self)
+        self._central = CDockWidget("Preview", self)
         self._central.setWidget(self._img_preview)
         self._central_dock_area = self.dock_manager.setCentralWidget(self._central)
 
