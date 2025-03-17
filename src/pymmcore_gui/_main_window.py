@@ -24,17 +24,12 @@ from PyQt6Ads import CDockManager, CDockWidget, SideBarLocation
 from pymmcore_gui.actions._core_qaction import QCoreAction
 from pymmcore_gui.actions.widget_actions import WidgetActionInfo
 
-from ._ndv_viewers import NDVViewersManager
 from .actions import CoreAction, WidgetAction
 from .actions._action_info import ActionKey
 from .settings import settings
-
-try:
-    from .widgets._pygfx_image import PygfxImagePreview as ImagePreview
-except ImportError:
-    from pymmcore_widgets import ImagePreview
-
+from .widgets._ndv_viewers import NDVViewersManager
 from .widgets._toolbars import OCToolBar, ShuttersToolbar
+from .widgets.image_preview._ndv_preview import NDVPreview
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -164,8 +159,7 @@ class MicroManagerGUI(QMainWindow):
         # get global CMMCorePlus instance
         self._mmc = mmcore or CMMCorePlus.instance()
 
-        self._img_preview = ImagePreview(self, mmcore=self._mmc)
-        self._img_preview.setObjectName("ImagePreview")
+        self._img_preview = NDVPreview(self, mmcore=self._mmc)
         self._viewers_manager = NDVViewersManager(self, self._mmc)
         self._viewers_manager.viewerCreated.connect(self._on_viewer_created)
 

@@ -12,7 +12,7 @@ if TYPE_CHECKING:
 
 def test_image_preview(mmcore: CMMCorePlus, qtbot: QtBot) -> None:
     try:
-        from pymmcore_gui.widgets._pygfx_image import PygfxImagePreview
+        from pymmcore_gui.widgets.image_preview._pygfx_image import PygfxImagePreview
     except ImportError:
         pytest.skip("PygfxImagePreview not available")
         return

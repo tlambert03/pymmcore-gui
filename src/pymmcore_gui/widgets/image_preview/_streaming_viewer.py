@@ -55,6 +55,7 @@ class StreamingViewer(_BaseArrayViewer):
         self._viewer_model.show_3d_button = False
         self._viewer_model.show_histogram_button = False
         self._viewer_model.show_channel_mode_selector = False
+        self._viewer_model.show_roi_button = False
 
     def reset(self) -> None:
         """Reset the viewer to its initial state."""
@@ -131,12 +132,12 @@ class StreamingViewer(_BaseArrayViewer):
         channels = self._norm_channels(channels)
         self._shape = shape
         self._dtype = np.dtype(dtype)
-        for key, model in channels.items():
-            lut_views = [self._view.add_lut_view()]
+        for idx, (key, model) in enumerate(channels.items()):
+            lut_views = [self._view.add_lut_view(idx)]
             data = np.zeros(shape, dtype=dtype)
             self._handles[key] = handle = self._canvas.add_image(data)
             self._lut_controllers[key] = ctrl = ChannelController(
-                key=key,
+                key=idx,
                 lut_model=model,
                 views=lut_views,
             )
@@ -183,7 +184,7 @@ class StreamingViewer(_BaseArrayViewer):
                     f"Channel {channel!r} not recognized. Must be one of {keys}"
                 ) from None
 
-        ctrl.update_texture_data(data, direct=True)
+        ctrl.update_texture_data(data)
         mi, ma = ctrl.lut_model.clims.calc_clims(data)
         for view in ctrl.lut_views:
             view.set_clims((mi, ma))
@@ -191,7 +192,7 @@ class StreamingViewer(_BaseArrayViewer):
         if clear_others:
             for key, ctrl in self._lut_controllers.items():
                 if key != channel:
-                    ctrl.update_texture_data(np.zeros_like(data), direct=True)
+                    ctrl.update_texture_data(np.zeros_like(data))
         self._update_hover_info()
 
     def _norm_channels(
