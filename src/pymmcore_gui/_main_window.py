@@ -49,7 +49,7 @@ if TYPE_CHECKING:
     from pymmcore_gui.widgets._about_widget import AboutWidget
     from pymmcore_gui.widgets._exception_log import ExceptionLog
     from pymmcore_gui.widgets._mm_console import MMConsole
-    from pymmcore_gui.widgets._stage_control import StagesControlWidget
+    from pymmcore_gui.widgets.stage_control import StagesControlWidget
 
 logger = logging.getLogger("pymmcore_gui")
 
