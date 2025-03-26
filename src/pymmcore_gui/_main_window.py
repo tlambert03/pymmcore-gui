@@ -37,6 +37,7 @@ from superqt import QIconifyIcon
 
 from pymmcore_gui.actions._core_qaction import QCoreAction
 from pymmcore_gui.actions.widget_actions import WidgetActionInfo
+from pymmcore_gui.widgets._toolbars import ShuttersToolbar
 from pymmcore_gui.widgets.image_preview._ndv_preview import NDVPreview
 
 from ._ndv_viewers import NDVViewersManager
@@ -117,7 +118,7 @@ class MicroManagerGUI(QMainWindow):
             CoreAction.TOGGLE_LIVE,
         ],
         Toolbar.OPTICAL_CONFIGS: OCToolBar,
-        # Toolbar.SHUTTERS: ShuttersToolbar,
+        Toolbar.SHUTTERS: ShuttersToolbar,
         Toolbar.WIDGETS: [
             WidgetAction.CONSOLE,
             WidgetAction.PROP_BROWSER,
