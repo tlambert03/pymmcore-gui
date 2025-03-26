@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Generic, TypeVar, cast
+from typing import TYPE_CHECKING, Any, Generic, TypeVar, cast
 
 from pymmcore_plus import CMMCorePlus, PropertyType
 from PyQt6.QtCore import Qt
@@ -82,11 +82,22 @@ def create_install_widgets(parent: QWidget) -> pmmw.InstallWidget:
 def create_mda_widget(parent: QWidget) -> pmmw.MDAWidget:
     """Create the MDA widget."""
     # from pymmcore_gui.widgets import _MDAWidget
+    from pymmcore_plus.mda.handlers import handler_for_path
     from pymmcore_widgets import MDAWidget
 
     from pymmcore_gui.settings import Settings
 
-    wdg = MDAWidget(parent=parent, mmcore=_get_core(parent))
+    class _MDAWidget(MDAWidget):
+        def execute_mda(self, output: Any) -> None:
+            sequence = self.value()
+            if output:
+                # here we *don't* pass handler to output
+                # local christina hack
+                handler = handler_for_path(output)
+                sequence.metadata["hacky_handler"] = handler
+            self._mmc.run_mda(sequence)
+
+    wdg = _MDAWidget(parent=parent, mmcore=_get_core(parent))
     wdg.save_info.save_name.setText("qi.ome.tiff")
     wdg.save_info.save_name.editingFinished.emit()
 
