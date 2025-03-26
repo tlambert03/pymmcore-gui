@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import sys
 import warnings
-from typing import TYPE_CHECKING, Any, TypeGuard
+from typing import TYPE_CHECKING, Any, TypeGuard, cast
 from weakref import WeakValueDictionary
 
 import ndv
@@ -80,7 +80,11 @@ class NDVViewersManager(QObject):
         TensorStoreHandler if none exist. Then we create a new ndv viewer and show it.
         """
         self._own_handler = self._handler = None
-        if handlers := self._mmc.mda.get_output_handlers():
+        if "hacky_handler" in sequence.metadata:
+            h = cast("_5DWriterBase", sequence.metadata["hacky_handler"])
+            h.sequenceStarted(sequence)
+            self._own_handler = h  # type: ignore
+        elif handlers := self._mmc.mda.get_output_handlers():
             # someone else has created a handler for this sequence
             self._handler = handlers[0]
         else:

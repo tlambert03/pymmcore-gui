@@ -1,16 +1,17 @@
 from __future__ import annotations
 
+import contextlib
 import logging
 import sys
 from collections.abc import Callable
 from enum import Enum
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal, cast, overload
+from typing import TYPE_CHECKING, Any, Literal, cast, overload
 from weakref import WeakValueDictionary
 
 import ndv
 import tifffile
-from pymmcore_plus import CMMCorePlus
+from pymmcore_plus import CMMCorePlus, mda
 from pymmcore_widgets import ConfigWizard
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import (
@@ -71,6 +72,12 @@ logger = logging.getLogger("pymmcore_gui")
 
 RESOURCES = Path(__file__).parent / "resources"
 ICON = RESOURCES / ("icon.ico" if sys.platform.startswith("win") else "logo.png")
+
+
+class _MDARunner(mda.MDARunner):
+    def _outputs_connected(self, output: Any) -> contextlib.AbstractContextManager:
+        # never connect the outputs
+        return contextlib.nullcontext()
 
 
 class Menu(str, Enum):
@@ -157,6 +164,8 @@ class MicroManagerGUI(QMainWindow):
 
         # get global CMMCorePlus instance
         self._mmc = mmcore or CMMCorePlus.instance()
+        self._mmc._mda_runner = _MDARunner()
+        self._mmc._mda_runner.set_engine(mda.MDAEngine(self._mmc))
 
         self._is_mda_running = False
         mda_ev = self._mmc.mda.events
