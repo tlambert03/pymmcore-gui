@@ -103,6 +103,15 @@ def main() -> QCoreApplication:
             last_config = Settings.instance().last_config
             if last_config and last_config.exists():
                 win.mmcore.loadSystemConfiguration(str(last_config))
+                if 'Christina' in last_config.name:
+                    # Fix joystick issue
+                    with suppress(Exception):
+                        win.mmcore.waitForSystem()
+                        stage = win.mmcore.getFocusDevice()
+                        prop = win.mmcore.getProperty(stage, 'JoystickInput')
+                        win.mmcore.setProperty(stage, 'JoystickInput', '0 - none')
+                        win.mmcore.setProperty(stage, 'JoystickInput', prop)
+
             else:
                 win.mmcore.loadSystemConfiguration()
     except Exception as e:

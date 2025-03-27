@@ -106,6 +106,16 @@ class Toolbar(str, Enum):
 ToolDictValue = list[ActionKey] | Callable[[CMMCorePlus, QMainWindow], QToolBar]
 MenuDictValue = list[ActionKey] | Callable[[CMMCorePlus, QMainWindow], QMenu]
 
+SS_TOOLBUTTON = """
+QToolButton:checked {
+    background-color: rgba(0, 200, 0, 80);
+    border: 2px solid rgba(0, 200, 0, 80);
+}
+QToolButton:checked:hover {
+    background-color: rgba(0, 200, 0, 120);
+    border: 2px solid rgba(0, 200, 0, 120);
+}
+"""
 
 class MicroManagerGUI(QMainWindow):
     """Micro-Manager minimal GUI."""
@@ -250,10 +260,9 @@ class MicroManagerGUI(QMainWindow):
             self._img_preview = dw = CDockWidget("Preview", self)
             self._img_preview.setWidget(preview)
             self.dock_manager.addDockWidgetTabToArea(dw, self._central_dock_area)
-        elif not self._img_preview.isVisible():
-            self.dock_manager.addDockWidgetTabToArea(
-                self._img_preview, self._central_dock_area
-            )
+        else:
+            self._img_preview.toggleView(True)
+
         return preview
 
     def _on_streaming_started(self) -> None:
@@ -282,6 +291,8 @@ class MicroManagerGUI(QMainWindow):
             tb = cast("QToolBar", self.addToolBar(name))
             for action in tb_entry:
                 tb.addAction(self.get_action(action))
+                
+        tb.setStyleSheet(SS_TOOLBUTTON)
         tb.setObjectName(name)
 
     def _add_menubar(self, name: str, menu_entry: MenuDictValue) -> None:
@@ -548,8 +559,10 @@ class MicroManagerGUI(QMainWindow):
         def _open_traceback(choice: str | None) -> None:
             if choice == see_tb:
                 log = self.get_widget(WidgetAction.EXCEPTION_LOG)
+                dw = self.get_dock_widget(WidgetAction.EXCEPTION_LOG)
                 log.show_exception(exc)
                 log.show()
+                dw.toggleView(True)
 
         self._notification_manager.show_error_message(
             str(exc), see_tb, on_action=_open_traceback
