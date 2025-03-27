@@ -4,12 +4,12 @@ from functools import cache
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, TypeGuard
 
-import ndv
 import numpy as np
 import numpy.typing as npt
 from PyQt6.QtGui import QImage
 from PyQt6.QtWidgets import QApplication, QVBoxLayout, QWidget
 
+from pymmcore_gui.widgets import _ndv as ndv
 from pymmcore_gui.widgets.image_preview._preview_base import _ImagePreviewBase
 
 if TYPE_CHECKING:

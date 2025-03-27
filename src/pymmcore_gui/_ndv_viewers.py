@@ -5,16 +5,18 @@ import warnings
 from typing import TYPE_CHECKING, Any, TypeGuard, cast
 from weakref import WeakValueDictionary
 
-import ndv
 import numpy as np
 import useq
-from ndv import DataWrapper
 from pymmcore_plus.mda.handlers import TensorStoreHandler
 from pymmcore_plus.mda.handlers._5d_writer_base import _5DWriterBase
 from PyQt6.QtCore import QObject, QTimer, pyqtSignal
 from PyQt6.QtWidgets import (
     QWidget,
 )
+
+# import ndv
+# from ndv import DataWrapper
+from .widgets import _ndv as ndv
 
 if TYPE_CHECKING:
     from collections.abc import Hashable, Iterator, Mapping, Sequence
@@ -166,7 +168,7 @@ class NDVViewersManager(QObject):
 # indexing and isel is particularly ugly at the moment.  TODO...
 
 
-class _OME5DWrapper(DataWrapper["_5DWriterBase"]):
+class _OME5DWrapper(ndv.DataWrapper["_5DWriterBase"]):
     @classmethod
     def supports(cls, obj: Any) -> TypeGuard[_5DWriterBase]:
         if "pymmcore_plus.mda" in sys.modules:

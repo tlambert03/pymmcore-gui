@@ -9,7 +9,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, cast, overload
 from weakref import WeakValueDictionary
 
-import ndv
 import tifffile
 from pymmcore_plus import CMMCorePlus, mda
 from pymmcore_widgets import ConfigWizard
@@ -45,6 +44,9 @@ from ._notification_manager import NotificationManager
 from .actions import CoreAction, WidgetAction
 from .actions._action_info import ActionKey
 from .settings import Settings
+
+# import ndv
+from .widgets import _ndv as ndv
 from .widgets._toolbars import OCToolBar
 
 if TYPE_CHECKING:
