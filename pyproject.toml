@@ -44,6 +44,7 @@ dependencies = [
     "pyqt6ads>=4.4.0.post1",
     "pyright>=1.1.393",
     "pyyaml>=6.0.2",
+    "pydantic<2.11",
     "qtconsole>=5.6.1",
     "rich",                         # also in pymmcore-plus[cli] above
     "superqt[cmap,iconify]>=0.7.1",
