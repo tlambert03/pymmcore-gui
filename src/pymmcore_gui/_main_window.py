@@ -119,6 +119,7 @@ QToolButton:checked:hover {
 }
 """
 
+
 class MicroManagerGUI(QMainWindow):
     """Micro-Manager minimal GUI."""
 
@@ -293,7 +294,7 @@ class MicroManagerGUI(QMainWindow):
             tb = cast("QToolBar", self.addToolBar(name))
             for action in tb_entry:
                 tb.addAction(self.get_action(action))
-                
+
         tb.setStyleSheet(SS_TOOLBUTTON)
         tb.setObjectName(name)
 
