@@ -25,6 +25,7 @@ if TYPE_CHECKING:
     from pymmcore_plus.metadata import FrameMetaV1, SummaryMetaV1
     from PyQt6.QtWidgets import QWidget
     from useq import MDASequence
+    from ndv.views.bases import ImageHandle
 
 
 # NOTE: we make this a QObject mostly so that the lifetime of this object is tied to
@@ -146,7 +147,7 @@ class NDVViewersManager(QObject):
 
     def _create_ndv_viewer(self, sequence: MDASequence) -> ndv.ArrayViewer:
         """Create a new ndv viewer with no data."""
-        ndv_viewer = ndv.ArrayViewer()
+        ndv_viewer = _CustomViewer()
         self._seq_viewers[str(sequence.uid)] = ndv_viewer
         self.viewerCreated.emit(ndv_viewer, sequence)
         return ndv_viewer
@@ -212,3 +213,15 @@ class _OME5DWrapper(DataWrapper["_5DWriterBase"]):
         data = self.data.position_arrays[key][tuple(idx)]
         # add back position dimension
         return np.expand_dims(data, axis=pidx)
+
+
+class _CustomViewer(ndv.ArrayViewer):
+    def __init__(self, data=None, /, display_model=None, **kwargs):
+        super().__init__(data, display_model, **kwargs)
+        self._super_add_volume = self._canvas.add_volume
+        self._canvas.add_volume = self.add_volume
+
+    def add_volume(self, data: np.ndarray | None = None) -> Any:
+        h = self._super_add_volume(data)
+        h._visual.set_transform("st", scale=(0.1, 0.1, 10, 0))  # type: ignore
+        return h
