@@ -25,7 +25,6 @@ if TYPE_CHECKING:
     from pymmcore_plus.metadata import FrameMetaV1, SummaryMetaV1
     from PyQt6.QtWidgets import QWidget
     from useq import MDASequence
-    from ndv.views.bases import ImageHandle
 
 
 # NOTE: we make this a QObject mostly so that the lifetime of this object is tied to
