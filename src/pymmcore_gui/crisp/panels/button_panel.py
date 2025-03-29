@@ -1,14 +1,21 @@
-#!/usr/bin/env python3
-# Project: ASI CRISP Control - Button Panel
-# License: BSD 3-clause
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
 
 from PyQt6.QtWidgets import QPushButton, QVBoxLayout, QWidget
+
+if TYPE_CHECKING:
+    from pymmcore_gui.crisp.crisp_device import CRISP
+    from pymmcore_gui.crisp.crisp_timer import CRISPTimer
+    from pymmcore_gui.crisp.panels.spinner_panel import SpinnerPanel
 
 
 class ButtonPanel(QWidget):
     """A panel with buttons for calibrating CRISP."""
 
-    def __init__(self, crisp, timer, spinner_panel) -> None:
+    def __init__(
+        self, crisp: CRISP, timer: CRISPTimer, spinner_panel: SpinnerPanel
+    ) -> None:
         super().__init__()
 
         self.crisp = crisp
@@ -23,6 +30,13 @@ class ButtonPanel(QWidget):
         self.btn_reset = QPushButton("Reset Offsets")
         self.btn_save = QPushButton("Save Settings")
 
+        self.btn_lock = QPushButton("Lock")
+        self.btn_lock.setFixedHeight(60)
+        self.btn_lock.setCheckable(True)
+        font = self.btn_lock.font()
+        font.setWeight(500)  # Bold
+        self.btn_lock.setFont(font)
+
         # Connect button signals to slots
         self.btn_idle.clicked.connect(self.on_idle_clicked)
         self.btn_logcal.clicked.connect(self.on_log_cal_clicked)
@@ -30,6 +44,7 @@ class ButtonPanel(QWidget):
         self.btn_setgain.clicked.connect(self.on_set_gain_clicked)
         self.btn_reset.clicked.connect(self.on_reset_offset_clicked)
         self.btn_save.clicked.connect(self.on_save_clicked)
+        self.btn_lock.clicked.connect(self.on_focus_lock_clicked)
 
         # Create layout
         layout = QVBoxLayout(self)
@@ -42,6 +57,8 @@ class ButtonPanel(QWidget):
         layout.addWidget(self.btn_setgain)
         layout.addWidget(self.btn_reset)
         layout.addWidget(self.btn_save)
+        layout.addStretch()
+        layout.addWidget(self.btn_lock)
 
     def on_idle_clicked(self) -> None:
         """Set CRISP to idle mode."""
@@ -96,8 +113,9 @@ class ButtonPanel(QWidget):
         if was_polling:
             self.timer.start()
 
-    def set_calibration_button_states(self, enabled) -> None:
+    def set_calibration_button_states(self, enabled: bool) -> None:
         """Enable/disable calibration buttons."""
-        self.log_cal_button.setEnabled(enabled)
-        self.dither_button.setEnabled(enabled)
-        self.set_gain_button.setEnabled(enabled)
+        self.btn_idle.setEnabled(enabled)
+        self.btn_logcal.setEnabled(enabled)
+        self.btn_dither.setEnabled(enabled)
+        self.btn_setgain.setEnabled(enabled)

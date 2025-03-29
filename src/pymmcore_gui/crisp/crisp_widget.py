@@ -140,9 +140,12 @@ class CRISPWidget(QWidget):
         self.plot_panel = PlotPanel(self)
 
         # Create left and right panels
+        left_layout = QVBoxLayout()
+        left_layout.addWidget(self.spinner_panel)
+        left_layout.addWidget(self.status_panel)
 
         top_layout = QHBoxLayout()
-        top_layout.addWidget(self.spinner_panel, 1)
+        top_layout.addLayout(left_layout)
         top_layout.addWidget(self.button_panel, 0)
         # bot_layout = QVBoxLayout()
 

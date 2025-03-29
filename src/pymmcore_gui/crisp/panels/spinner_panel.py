@@ -1,6 +1,6 @@
-#!/usr/bin/env python3
-# Project: ASI CRISP Control - Spinner Panel
-# License: BSD 3-clause
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
 
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
@@ -18,11 +18,15 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+if TYPE_CHECKING:
+    from pymmcore_gui.crisp.crisp_device import CRISP
+    from pymmcore_gui.crisp.crisp_timer import CRISPTimer
+
 
 class SpinnerPanel(QWidget):
     """A panel for CRISP settings with numeric spinners."""
 
-    def __init__(self, crisp, timer) -> None:
+    def __init__(self, crisp: CRISP, timer: CRISPTimer) -> None:
         super().__init__()
 
         self.crisp = crisp
@@ -81,9 +85,6 @@ class SpinnerPanel(QWidget):
         layout.addLayout(form)
         layout.addWidget(self.polling_checkbox)
 
-        # Create spinners and labels
-        # self.create_spinners()
-
         # Create profile controls
         # self.create_profile_controls()
 
@@ -130,7 +131,7 @@ class SpinnerPanel(QWidget):
         # Update all spinner values from device
         self.led_intensity.setValue(self.crisp.get_led_intensity())
         self.objective_na.setValue(self.crisp.get_objective_na())
-        # self.cal_gain_spinner.setValue(self.crisp.get_cal_gain())
+        # self.cal_gain.setValue(self.crisp.get_cal_gain())
         self.loop_gain.setValue(self.crisp.get_loop_gain())
         self.num_averages.setValue(self.crisp.get_num_averages())
         self.update_rate.setValue(self.crisp.get_update_rate())
@@ -168,8 +169,8 @@ class SpinnerPanel(QWidget):
 
     def set_enabled_focus_lock_spinners(self, enabled) -> None:
         """Enable/disable spinners that can't be changed during focus lock."""
-        self.led_intensity_spinner.setEnabled(enabled)
-        self.cal_gain_spinner.setEnabled(enabled)
+        self.led_intensity.setEnabled(enabled)
+        # self.cal_gain.setEnabled(enabled)
 
     def set_enabled_update_rate_spinner(self, enabled) -> None:
         """Enable/disable update rate spinner (for firmware compatibility)."""
