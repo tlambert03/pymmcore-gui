@@ -183,25 +183,19 @@ class CRISP:
         with suppress(Exception):
             for device in self.core.iterDevices(
                 device_type=DeviceType.AutoFocus,
-                device_adapter=f"{DeviceLibrary.TIGER}|{DeviceLibrary.MS2000}",
+                device_adapter=DeviceLibrary.TIGER,
             ):
                 description = device.description()
-                if description.startswith(Description.TIGER):
-                    self._device_name = device.name()
-                    self._device_type = ControllerType.TIGER
-                    self._firmware_version = float(
-                        self.core.getProperty(self._device_name, "FirmwareVersion")
-                    )
+                print(device, f'{description=}')
+                print('found tiger')
+                self._device_name = device.name()
+                self._device_type = ControllerType.TIGER
+                self._firmware_version = float(
+                    self.core.getProperty(self._device_name, "FirmwareVersion")
+                )
 
-                    return True
-                elif description == Description.MS2000:
-                    self._device_type = ControllerType.MS2000
-                    self._device_name = device.name()
-                    version = self.core.getProperty(self._device_name, "Version")
-                    v = version.split("-")[1]
-                    self._firmware_version = float(v[0:-2])
-                    self._firmware_version_letter = v[-2]
-                    return True
+                return True
+
         return False
 
     def reset(self) -> None:

@@ -156,6 +156,7 @@ class MicroManagerGUI(QMainWindow):
             WidgetAction.CONFIG_GROUPS,
             WidgetAction.EXCEPTION_LOG,
             WidgetAction.CONFIG_WIZARD,
+            WidgetAction.CRISP,
         ],
     }
 
