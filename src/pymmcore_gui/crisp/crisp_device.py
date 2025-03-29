@@ -238,10 +238,12 @@ class CRISP:
         if timer and self._device_type == ControllerType.TIGER:
             if self._firmware_version < 3.38:
                 timer.on_log_cal()
-        elif timer and self._device_type == ControllerType.MS2000:
-            if self._firmware_version < 9.2 and self._firmware_version_letter < "j":
-                timer.on_log_cal()
-
+        print(
+            "setting CRISP state to log cal",
+            self._device_name,
+            PropName.CRISP_STATE,
+            PropValue.STATE_LOG_CAL,
+        )
         self.core.setProperty(
             self._device_name, PropName.CRISP_STATE, PropValue.STATE_LOG_CAL
         )
