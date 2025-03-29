@@ -70,7 +70,7 @@ class SpinnerPanel(QWidget):
         self.poll_rate.setValue(200)
 
         self.polling_checkbox = QCheckBox("Enable Polling")
-        self.polling_checkbox.setChecked()
+        self.polling_checkbox.setChecked(True)
 
         form = QFormLayout()
         form.setContentsMargins(0, 0, 0, 0)
