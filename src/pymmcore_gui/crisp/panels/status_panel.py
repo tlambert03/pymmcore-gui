@@ -36,7 +36,7 @@ class StatusPanel(QWidget):
 
     def _update(self) -> None:
         """Update displayed values from CRISP."""
-        self._state.setText(self.crisp.get_state_string())
+        self._state.setText(self.crisp.get_state())
         self._error.setText(f"{self.crisp.get_error():.2f}")
         self._snr.setText(f"{self.crisp.get_snr():.2f}")
         self._agc.setText(f"{self.crisp.get_agc():.2f}")

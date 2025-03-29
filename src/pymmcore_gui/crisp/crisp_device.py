@@ -192,6 +192,7 @@ class CRISP:
                     self._firmware_version = float(
                         self.core.getProperty(self._device_name, "FirmwareVersion")
                     )
+
                     return True
                 elif description == Description.MS2000:
                     self._device_type = ControllerType.MS2000
@@ -214,8 +215,8 @@ class CRISP:
             self.core.setProperty(
                 self._device_name, PropName.CRISP_STATE, PropValue.RESET_FOCUS_OFFSET
             )
-        except Exception:
-            pass
+        except Exception as e:
+            print(e)
 
     # State control methods
     def set_state_idle(self) -> None:
@@ -224,15 +225,15 @@ class CRISP:
             self.core.setProperty(
                 self._device_name, PropName.CRISP_STATE, PropValue.STATE_IDLE
             )
-        except Exception:
-            pass
+        except Exception as e:
+            print(e)
 
     def set_state_lock(self) -> None:
         """Set CRISP to locked mode."""
         try:
             self.core.enableContinuousFocus(True)
-        except Exception:
-            pass
+        except Exception as e:
+            print(e)
 
     def set_state_log_cal(self, timer=None) -> None:
         """Start CRISP log calibration."""
@@ -248,8 +249,8 @@ class CRISP:
             self.core.setProperty(
                 self._device_name, PropName.CRISP_STATE, PropValue.STATE_LOG_CAL
             )
-        except Exception:
-            pass
+        except Exception as e:
+            print(e)
 
     def set_state_dither(self) -> None:
         """Start CRISP dither calibration."""
@@ -257,8 +258,8 @@ class CRISP:
             self.core.setProperty(
                 self._device_name, PropName.CRISP_STATE, PropValue.STATE_DITHER
             )
-        except Exception:
-            pass
+        except Exception as e:
+            print(e)
 
     def set_state_gain_cal(self) -> None:
         """Start CRISP gain calibration."""
@@ -266,8 +267,8 @@ class CRISP:
             self.core.setProperty(
                 self._device_name, PropName.CRISP_STATE, PropValue.STATE_GAIN_CAL
             )
-        except Exception:
-            pass
+        except Exception as e:
+            print(e)
 
     def is_focus_locked(self) -> bool:
         """Check if CRISP is currently focus-locked."""
@@ -300,10 +301,12 @@ class CRISP:
 
     def get_state(self) -> str:
         """Get the current CRISP state as a string."""
+        if not self._device_name:
+            return "No Device"
         try:
             return self.core.getProperty(self._device_name, PropName.CRISP_STATE)
-        except Exception:
-            return ""
+        except Exception as e:
+            return str(e)[:100]
 
     def get_axis_string(self) -> str:
         """Get the axis string."""
@@ -426,22 +429,22 @@ class CRISP:
         """Set the LED intensity."""
         try:
             self.core.setProperty(self._device_name, PropName.LED_INTENSITY, value)
-        except Exception:
-            pass
+        except Exception as e:
+            print(e)
 
     def set_objective_na(self, value: float) -> None:
         """Set the objective numerical aperture."""
         try:
             self.core.setProperty(self._device_name, PropName.OBJECTIVE_NA, value)
-        except Exception:
-            pass
+        except Exception as e:
+            print(e)
 
     def set_cal_gain(self, value: int) -> None:
         """Set the calibration gain."""
         try:
             self.core.setProperty(self._device_name, PropName.GAIN, value)
-        except Exception:
-            pass
+        except Exception as e:
+            print(e)
 
     def set_loop_gain(self, value: int) -> None:
         """Set the loop gain."""
@@ -453,36 +456,36 @@ class CRISP:
         """Set the number of averages."""
         try:
             self.core.setProperty(self._device_name, PropName.NUMBER_OF_AVERAGES, value)
-        except Exception:
-            pass
+        except Exception as e:
+            print(e)
 
     def set_update_rate(self, value: int) -> None:
         """Set the update rate."""
         try:
             self.core.setProperty(self._device_name, PropName.NUMBER_OF_SKIPS, value)
-        except Exception:
-            pass
+        except Exception as e:
+            print(e)
 
     def set_lock_range(self, value: float) -> None:
         """Set the lock range."""
         try:
             self.core.setProperty(self._device_name, PropName.MAX_LOCK_RANGE, value)
-        except Exception:
-            pass
+        except Exception as e:
+            print(e)
 
     def lock(self) -> None:
         """Lock the CRISP (enable continuous focus)."""
         try:
             self.core.enableContinuousFocus(True)
-        except Exception:
-            pass
+        except Exception as e:
+            print(e)
 
     def unlock(self) -> None:
         """Unlock the CRISP (disable continuous focus)."""
         try:
             self.core.enableContinuousFocus(False)
-        except Exception:
-            pass
+        except Exception as e:
+            print(e)
 
     def save(self) -> None:
         """Save current settings to the device firmware."""
@@ -490,8 +493,8 @@ class CRISP:
             self.core.setProperty(
                 self._device_name, PropName.CRISP_STATE, PropValue.SAVE_TO_CONTROLLER
             )
-        except Exception:
-            pass
+        except Exception as e:
+            print(e)
 
     def get_focus_curve(self) -> None:
         """Get focus curve data (only for MS2000)."""
@@ -502,8 +505,8 @@ class CRISP:
                     PropName.MS2000.OBTAIN_FOCUS_CURVE,
                     PropValue.MS2000.DO_IT,
                 )
-        except Exception:
-            pass
+        except Exception as e:
+            print(e)
 
     def get_focus_curve_data(self, n: int) -> str:
         """Get part of the focus curve data (only for MS2000)."""
@@ -512,8 +515,8 @@ class CRISP:
                 return self.core.getProperty(
                     self._device_name, f"{PropName.MS2000.FOCUS_CURVE_DATA_PREFIX}{n}"
                 )
-        except Exception:
-            pass
+        except Exception as e:
+            print(e)
         return ""
 
     def get_all_focus_curve_data(self) -> str:
@@ -534,8 +537,8 @@ class CRISP:
                     PropName.REFRESH_PROP_VALUES,
                     PropValue.YES if state else PropValue.NO,
                 )
-        except Exception:
-            pass
+        except Exception as e:
+            print(e)
 
     # Tiger-specific serial commands
     def set_only_send_serial_command_on_change(self, state: bool) -> None:
@@ -547,22 +550,22 @@ class CRISP:
                     "OnlySendSerialCommandOnChange",
                     "Yes" if state else "No",
                 )
-        except Exception:
-            pass
+        except Exception as e:
+            print(e)
 
     def send_serial_command(self, command: str) -> None:
         """Send a serial command (only for Tiger)."""
         try:
             if self.is_tiger():
                 self.core.setProperty("TigerCommHub", "SerialCommand", command)
-        except Exception:
-            pass
+        except Exception as e:
+            print(e)
 
     def get_serial_response(self) -> str:
         """Get the serial response (only for Tiger)."""
         try:
             if self.is_tiger():
                 return self.core.getProperty("TigerCommHub", "SerialResponse")
-        except Exception:
-            pass
+        except Exception as e:
+            print(e)
         return ""

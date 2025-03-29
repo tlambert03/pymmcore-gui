@@ -37,8 +37,14 @@ class CRISPWidget(QWidget):
         self.settings = UserSettings(self.crisp, self.timer, self)
 
         # Create central widget and main layout
-        self.create_user_interface()  # some ui panels require both crisp and the timer
-        self.init()  # called after ui is created because it updates the panels
+        self.setWindowTitle("CRISP Control")
+
+        if self.crisp.detect_device():
+            self.create_user_interface()  # some ui panels require both crisp and the timer
+            self.init()  # called after ui is created because it updates the panels
+        else:
+            # If CRISP device is not detected, create a simple error interface
+            self.create_error_interface()
 
     def init(self) -> None:
         """Updates panels and starts the timer."""
@@ -77,57 +83,37 @@ class CRISPWidget(QWidget):
         ):
             self.spinner_panel.set_enabled_update_rate_spinner(False)
 
-    # def create_error_interface(self) -> None:
-    #     """This UI is created when the plugin encounters an error when trying to detect CRISP."""
-    #     # window settings
-    #     self.setWindowTitle("CRISP Control")
-    #     # self.setFixedSize(400, 250)
+    def create_error_interface(self) -> None:
+        """This UI is created when the plugin encounters an error when trying to detect CRISP."""
+        # window settings
+        # self.setFixedSize(400, 250)
 
-    #     # Create layout
-    #     main_layout = QVBoxLayout(self)
-    #     main_layout.setContentsMargins(20, 20, 20, 20)
+        # Create layout
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(20, 20, 20, 20)
 
-    #     # Title label
-    #     title_label = QLabel("CRISP Control: Error")
-    #     title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        # Title label
+        title_label = QLabel("CRISP Control: Error")
+        title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-    #     # Error message
-    #     error_label = QLabel("This plugin requires an ASI CRISP Autofocus device.")
-    #     error_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        # Error message
+        error_label = QLabel("This plugin requires an ASI CRISP Autofocus device.")
+        error_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-    #     # Help message
-    #     help_label = QLabel(
-    #         "Add the CRISP device from the <b>ASIStage</b> or "
-    #         "<b>ASITiger</b><br> device adapter in the <u>Hardware Configuration Wizard</u>.",
-    #     )
-    #     help_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        # Help message
+        help_label = QLabel(
+            "Add the CRISP device from the <b>ASIStage</b> or "
+            "<b>ASITiger</b><br> device adapter in the Hardware Configuration Wizard.",
+        )
+        help_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-    #     # Button layout
-    #     button_layout = QHBoxLayout()
-    #     website_button = QPushButton("Website")
-    #     manual_button = QPushButton("Manual")
-    #     # website_button.setFixedSize(120, 30)
-    #     # manual_button.setFixedSize(120, 30)
-
-    #     website_button.clicked.connect(self.open_website)
-    #     manual_button.clicked.connect(self.open_manual)
-
-    #     button_layout.addWidget(website_button)
-    #     button_layout.addWidget(manual_button)
-    #     button_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-    #     # Add widgets to layout
-    #     main_layout.addWidget(title_label)
-    #     main_layout.addWidget(error_label)
-    #     main_layout.addWidget(help_label)
-    #     main_layout.addLayout(button_layout)
-
-    #     # Set icon
-    #     self.setWindowIcon(QIcon("resources/microscope.png"))
+        # Add widgets to layout
+        main_layout.addWidget(title_label)
+        main_layout.addWidget(error_label)
+        main_layout.addWidget(help_label)
 
     def create_user_interface(self) -> None:
         """Create the user interface for the plugin."""
-        self.setWindowTitle("CRISP Control")
 
         # Title
         title_label = QLabel("CRISP Control")

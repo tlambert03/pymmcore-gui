@@ -83,7 +83,8 @@ class ButtonPanel(QWidget):
         """Reset CRISP offset."""
         self.crisp.reset_offset()
 
-    def on_save_clicked(self) -> None: ...
+    def on_save_clicked(self) -> None:
+        self.crisp.save()
 
     def on_focus_lock_clicked(self) -> None:
         """Toggle CRISP focus lock."""
