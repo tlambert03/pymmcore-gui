@@ -225,12 +225,9 @@ class CRISP:
         except Exception as e:
             print(e)
 
-    def set_state_lock(self) -> None:
+    def set_state_lock(self, state: bool = True) -> None:
         """Set CRISP to locked mode."""
-        try:
-            self.core.enableContinuousFocus(True)
-        except Exception as e:
-            print(e)
+        self.core.enableContinuousFocus(state)
 
     def set_state_log_cal(self, timer=None) -> None:
         """Start CRISP log calibration."""
@@ -444,20 +441,6 @@ class CRISP:
     def set_lock_range(self, value: float) -> None:
         """Set the lock range."""
         self.core.setProperty(self._device_name, PropName.MAX_LOCK_RANGE, value)
-
-    def lock(self) -> None:
-        """Lock the CRISP (enable continuous focus)."""
-        try:
-            self.core.enableContinuousFocus(True)
-        except Exception as e:
-            print(e)
-
-    def unlock(self) -> None:
-        """Unlock the CRISP (disable continuous focus)."""
-        try:
-            self.core.enableContinuousFocus(False)
-        except Exception as e:
-            print(e)
 
     def save(self) -> None:
         """Save current settings to the device firmware."""

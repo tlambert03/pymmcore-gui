@@ -35,17 +35,6 @@ class SpinnerPanel(QWidget):
         # Create layout
         self.axis_label = QLabel("Axis: Z")
 
-        #    // CRISPSettings
-        #    public static final int NUM_AVERAGES = 0;
-        #    public static final int LED_INTENSITY = 50;
-        #    public static final int UPDATE_RATE_MS = 10;
-        #    public static final float LOCK_RANGE = 1.0f;
-        #    public static final float OBJECTIVE_NA = 0.65f;
-
-        #    // plugin settings
-        #    public static final int POLL_RATE_MS = 250;
-        #    public static final boolean POLL_CHECKED = true;
-
         self.led_intensity = QSpinBox()
         self.led_intensity.setMaximum(100)
         self.led_intensity.valueChanged.connect(self.on_led_intensity_changed)
@@ -54,7 +43,7 @@ class SpinnerPanel(QWidget):
         self.objective_na = QDoubleSpinBox()
         self.objective_na.setMinimum(0.1)
         self.objective_na.setMaximum(1.5)
-        self.objective_na.setSingleStep(0.1)
+        self.objective_na.setSingleStep(0.01)
         self.objective_na.valueChanged.connect(self.on_objective_na_changed)
         self.objective_na.setValue(0.75)
 
@@ -86,6 +75,7 @@ class SpinnerPanel(QWidget):
 
         self.polling_checkbox = QCheckBox("Enable Polling")
         self.polling_checkbox.setChecked(True)
+        self.polling_checkbox.stateChanged.connect(self.on_polling_changed)
 
         form = QFormLayout()
         form.setContentsMargins(0, 0, 0, 0)

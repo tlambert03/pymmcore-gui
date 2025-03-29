@@ -94,8 +94,9 @@ class ButtonPanel(QWidget):
             self.spinner_panel.set_enabled_focus_lock_spinners(True)
             self.set_calibration_button_states(True)
         else:
+            print("Locking CRISP")
             # Not locked, so lock
-            self.crisp.set_state_lock()
+            self.crisp.set_state_lock(True)
             self.spinner_panel.set_enabled_focus_lock_spinners(False)
             self.set_calibration_button_states(False)
 
