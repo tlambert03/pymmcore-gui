@@ -35,6 +35,17 @@ class SpinnerPanel(QWidget):
         # Create layout
         self.axis_label = QLabel("Axis: Z")
 
+        #    // CRISPSettings
+        #    public static final int NUM_AVERAGES = 0;
+        #    public static final int LED_INTENSITY = 50;
+        #    public static final int UPDATE_RATE_MS = 10;
+        #    public static final float LOCK_RANGE = 1.0f;
+        #    public static final float OBJECTIVE_NA = 0.65f;
+
+        #    // plugin settings
+        #    public static final int POLL_RATE_MS = 250;
+        #    public static final boolean POLL_CHECKED = true;
+
         self.led_intensity = QSpinBox()
         self.led_intensity.setMaximum(100)
         self.led_intensity.valueChanged.connect(self.on_led_intensity_changed)
@@ -42,7 +53,7 @@ class SpinnerPanel(QWidget):
 
         self.objective_na = QDoubleSpinBox()
         self.objective_na.setMinimum(0.1)
-        self.objective_na.setMaximum(1.4)
+        self.objective_na.setMaximum(1.5)
         self.objective_na.setSingleStep(0.1)
         self.objective_na.valueChanged.connect(self.on_objective_na_changed)
         self.objective_na.setValue(0.75)
@@ -50,6 +61,7 @@ class SpinnerPanel(QWidget):
         self.loop_gain = QSpinBox()
         self.loop_gain.setMaximum(100)
         self.loop_gain.valueChanged.connect(self.on_loop_gain_changed)
+        self.loop_gain.setValue(10)
 
         self.num_averages = QSpinBox()
         self.num_averages.setMaximum(10)
@@ -59,14 +71,17 @@ class SpinnerPanel(QWidget):
         self.update_rate.setMinimum(1)
         self.update_rate.setMaximum(100)
 
-        self.lock_range = QSpinBox()
-        self.lock_range.setMaximum(1000)
-        self.lock_range.setSingleStep(1)
-        # self.lock_range.valueChanged.connect(self.on_lock_range_changed)
+        self.lock_range = QDoubleSpinBox()
+        self.lock_range.setMaximum(2)
+        self.lock_range.valueChanged.connect(self.on_lock_range_changed)
+        self.lock_range.setValue(1.0)
+        self.lock_range.setSingleStep(0.05)
 
         self.poll_rate = QSpinBox()
         self.poll_rate.setMinimum(1)
         self.poll_rate.setMaximum(1000)
+        self.poll_rate.setSingleStep(50)
+        self.poll_rate.valueChanged.connect(self.on_poll_rate_changed)
         self.poll_rate.setValue(200)
 
         self.polling_checkbox = QCheckBox("Enable Polling")
@@ -200,9 +215,17 @@ class SpinnerPanel(QWidget):
         """Handle number of averages change."""
         self.crisp.set_num_averages(value)
 
+    def on_lock_range_changed(self, value) -> None:
+        """Handle lock range change."""
+        self.crisp.set_lock_range(value)
+
     def on_update_rate_changed(self, value) -> None:
         """Handle update rate change."""
         self.crisp.set_update_rate(value)
+
+    def on_poll_rate_changed(self, value) -> None:
+        """Handle polling rate change."""
+        self.timer.set_interval(value)
 
     def on_polling_changed(self, state) -> None:
         """Handle polling checkbox change."""

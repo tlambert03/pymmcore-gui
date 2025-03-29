@@ -30,17 +30,13 @@ class CRISPTimer:
     def update_task(self) -> None:
         """Update task that runs on timer ticks."""
         # Skip polling if needed (used during log_cal when device may be unresponsive)
-        print("timer task")
         if self._skip_polling:
             self._skip_count -= 1
             if self._skip_count <= 0:
                 self._skip_polling = False
             return
 
-        print("uppdate panel?", bool(self.status_panel))
         if self.status_panel:
-            # In a real implementation, this would poll the actual device
-            # For demo, we'll just update the status panel
             self.status_panel._update()
 
     def start(self) -> None:
