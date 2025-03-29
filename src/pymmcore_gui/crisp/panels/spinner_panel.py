@@ -208,13 +208,13 @@ class SpinnerPanel(QWidget):
         else:
             self.timer.stop()
 
-    def on_profile_selected(self, index) -> None:
+    def on_profile_selected(self, index: int) -> None:
         """Handle profile selection change."""
         # Enable/disable remove button (can't remove Default profile)
         self.remove_profile_btn.setEnabled(index > 0)
 
-        # Set the active settings profile in CRISP
-        if 0 <= index < self.crisp.get_num_settings():
+        # Set the active settings profile in CRISPlen(self.crisp.settings)
+        if 0 <= index < len(self.crisp.settings):
             self.crisp.set_settings_index(index)
             # Update spinners with values from selected profile
             self._update()
@@ -231,8 +231,8 @@ class SpinnerPanel(QWidget):
 
         if ok and name:
             # Set the name in the newly created profile
-            last_index = self.crisp.get_num_settings() - 1
-            self.crisp.get_settings_by_index(last_index).name = name
+            last_index = len(self.crisp.settings) - 1
+            self.crisp.settings[last_index].name = name
 
             # Update the profile combo and select the new profile
             self.update_profile_combo()

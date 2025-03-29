@@ -10,7 +10,7 @@ from typing import ClassVar
 class CRISPSettings:
     """A dataclass to store software settings for CRISP."""
 
-    name: str
+    name: str = "Default"  # Name of the settings profile
     gain: int = 1
     led_intensity: int = 50
     update_rate_ms: int = 10
@@ -20,7 +20,6 @@ class CRISPSettings:
 
     NAME_PREFIX: ClassVar[str] = "Profile"
     SETTINGS_NOT_FOUND: ClassVar[str] = "No Settings"
-    DEFAULT_PROFILE_NAME: ClassVar[str] = "Default"
 
     def __str__(self) -> str:
         """String representation of the settings."""
