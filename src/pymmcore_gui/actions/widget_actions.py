@@ -69,6 +69,18 @@ def create_mm_console(parent: QWidget) -> MMConsole:
     return MMConsole(parent=parent)
 
 
+def create_crisp_widget(parent: QWidget) -> Any:
+    """Create a CRISP Setup widget."""
+    # Importing here to avoid circular dependencies
+    from ..crisp.crisp_widget import CRISPWidget
+
+    # Create the CRISP setup widget
+    wdg = CRISPWidget(_get_core(parent), parent)
+    wdg.setWindowFlags(Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.Window)
+    wdg.resize(800, 400)
+    return wdg
+
+
 def create_install_widgets(parent: QWidget) -> pmmw.InstallWidget:
     """Create the Install Devices widget."""
     from pymmcore_widgets import InstallWidget
@@ -236,6 +248,7 @@ class WidgetAction(ActionKey):
     EXCEPTION_LOG = "Exception Log"
     STAGE_CONTROL = "Stage Control"
     CONFIG_WIZARD = "Hardware Config Wizard"
+    CRISP = "CRISP Setup"
 
     def create_widget(self, parent: QWidget) -> QWidget:
         """Create the widget associated with this action."""
@@ -281,6 +294,13 @@ show_console = WidgetActionInfo(
     icon="iconoir:terminal",
     create_widget=create_mm_console,
     dock_area=DockWidgetArea.BottomDockWidgetArea,
+)
+
+show_crisp = WidgetActionInfo(
+    key=WidgetAction.CRISP,
+    icon="arcticons:crispy-icon-pack",
+    create_widget=create_crisp_widget,
+    dock_area=DockWidgetArea.LeftDockWidgetArea,
 )
 
 show_property_browser = WidgetActionInfo(

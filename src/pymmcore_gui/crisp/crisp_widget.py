@@ -24,8 +24,8 @@ class CRISPWidget(QWidget):
     # DEBUG => flag to turn on debug mode when editing the ui
     DEBUG = False
 
-    def __init__(self, core: CMMCorePlus) -> None:
-        super().__init__()
+    def __init__(self, core: CMMCorePlus, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
 
         self.core = core
 
