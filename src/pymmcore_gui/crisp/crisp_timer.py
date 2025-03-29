@@ -1,8 +1,11 @@
-#!/usr/bin/env python3
-# Project: ASI CRISP Control - Timer for CRISP Polling
-# License: BSD 3-clause
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
 
 from PyQt6.QtCore import QTimer
+
+if TYPE_CHECKING:
+    from pymmcore_gui.crisp.panels.status_panel import StatusPanel
 
 
 class CRISPTimer:
@@ -11,7 +14,7 @@ class CRISPTimer:
     def __init__(self, crisp) -> None:
         self.crisp = crisp
         self.timer = QTimer()
-        self.status_panel = None
+        self.status_panel: StatusPanel | None = None
         self.interval = 100  # Default interval in milliseconds
         self._running = False
 
@@ -19,7 +22,7 @@ class CRISPTimer:
         self._skip_count = 0
         self._skip_polling = False
 
-    def create_timer_task(self, status_panel) -> None:
+    def create_timer_task(self, status_panel: StatusPanel) -> None:
         """Set up the timer task to update the status panel."""
         self.status_panel = status_panel
         self.timer.timeout.connect(self.update_task)
@@ -27,16 +30,18 @@ class CRISPTimer:
     def update_task(self) -> None:
         """Update task that runs on timer ticks."""
         # Skip polling if needed (used during log_cal when device may be unresponsive)
+        print("timer task")
         if self._skip_polling:
             self._skip_count -= 1
             if self._skip_count <= 0:
                 self._skip_polling = False
             return
 
+        print("uppdate panel?", bool(self.status_panel))
         if self.status_panel:
             # In a real implementation, this would poll the actual device
             # For demo, we'll just update the status panel
-            self.status_panel.update()
+            self.status_panel._update()
 
     def start(self) -> None:
         """Start the timer."""

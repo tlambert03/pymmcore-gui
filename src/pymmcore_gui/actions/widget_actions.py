@@ -72,7 +72,7 @@ def create_mm_console(parent: QWidget) -> MMConsole:
 def create_crisp_widget(parent: QWidget) -> Any:
     """Create a CRISP Setup widget."""
     # Importing here to avoid circular dependencies
-    from ..crisp.crisp_widget import CRISPWidget
+    from pymmcore_gui.crisp.crisp_widget import CRISPWidget
 
     # Create the CRISP setup widget
     wdg = CRISPWidget(_get_core(parent), parent)

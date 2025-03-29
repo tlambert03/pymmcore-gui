@@ -42,6 +42,7 @@ class CRISPWidget(QWidget):
         if self.crisp.detect_device():
             self.create_user_interface()  # some ui panels require both crisp and the timer
             self.init()  # called after ui is created because it updates the panels
+            print("STATE", self.crisp.get_state())
         else:
             # If CRISP device is not detected, create a simple error interface
             self.create_error_interface()
@@ -114,7 +115,6 @@ class CRISPWidget(QWidget):
 
     def create_user_interface(self) -> None:
         """Create the user interface for the plugin."""
-
         # Title
         title_label = QLabel("CRISP Control")
         title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)

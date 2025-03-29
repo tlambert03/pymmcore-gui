@@ -45,6 +45,7 @@ class SpinnerPanel(QWidget):
         self.objective_na.setMaximum(1.4)
         self.objective_na.setSingleStep(0.1)
         self.objective_na.valueChanged.connect(self.on_objective_na_changed)
+        self.objective_na.setValue(0.75)
 
         self.loop_gain = QSpinBox()
         self.loop_gain.setMaximum(100)
@@ -69,6 +70,7 @@ class SpinnerPanel(QWidget):
         self.poll_rate.setValue(200)
 
         self.polling_checkbox = QCheckBox("Enable Polling")
+        self.polling_checkbox.setChecked()
 
         form = QFormLayout()
         form.setContentsMargins(0, 0, 0, 0)
