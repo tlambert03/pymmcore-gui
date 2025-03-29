@@ -38,6 +38,7 @@ class SpinnerPanel(QWidget):
         self.led_intensity = QSpinBox()
         self.led_intensity.setMaximum(100)
         self.led_intensity.valueChanged.connect(self.on_led_intensity_changed)
+        self.led_intensity.setValue(50)
 
         self.objective_na = QDoubleSpinBox()
         self.objective_na.setMinimum(0.1)

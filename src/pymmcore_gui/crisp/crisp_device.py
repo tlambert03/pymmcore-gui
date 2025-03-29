@@ -3,7 +3,7 @@
 # License: BSD 3-clause
 
 from contextlib import suppress
-from matplotlib.pylab import f
+
 from pymmcore_plus import CMMCorePlus, DeviceType
 
 from .crisp_settings import CRISPSettings
@@ -151,7 +151,8 @@ class CRISP:
         Args:
             device_name: The name of the device
 
-        Returns:
+        Returns
+        -------
             The device library name
         """
         try:
@@ -165,7 +166,8 @@ class CRISP:
         Args:
             device_name: The name of the device
 
-        Returns:
+        Returns
+        -------
             The device description
         """
         try:
@@ -177,7 +179,8 @@ class CRISP:
         """Attempt to detect the CRISP device.
         Searches for the device among loaded AutoFocus devices.
 
-        Returns:
+        Returns
+        -------
             True if a CRISP device was found
         """
         with suppress(Exception):
@@ -186,8 +189,8 @@ class CRISP:
                 device_adapter=DeviceLibrary.TIGER,
             ):
                 description = device.description()
-                print(device, f'{description=}')
-                print('found tiger')
+                print(device, f"{description=}")
+                print("found tiger")
                 self._device_name = device.name()
                 self._device_type = ControllerType.TIGER
                 self._firmware_version = float(
@@ -231,38 +234,29 @@ class CRISP:
 
     def set_state_log_cal(self, timer=None) -> None:
         """Start CRISP log calibration."""
-        try:
-            # Handle firmware-specific timer behavior
-            if timer and self._device_type == ControllerType.TIGER:
-                if self._firmware_version < 3.38:
-                    timer.on_log_cal()
-            elif timer and self._device_type == ControllerType.MS2000:
-                if self._firmware_version < 9.2 and self._firmware_version_letter < "j":
-                    timer.on_log_cal()
+        # Handle firmware-specific timer behavior
+        if timer and self._device_type == ControllerType.TIGER:
+            if self._firmware_version < 3.38:
+                timer.on_log_cal()
+        elif timer and self._device_type == ControllerType.MS2000:
+            if self._firmware_version < 9.2 and self._firmware_version_letter < "j":
+                timer.on_log_cal()
 
-            self.core.setProperty(
-                self._device_name, PropName.CRISP_STATE, PropValue.STATE_LOG_CAL
-            )
-        except Exception as e:
-            print(e)
+        self.core.setProperty(
+            self._device_name, PropName.CRISP_STATE, PropValue.STATE_LOG_CAL
+        )
 
     def set_state_dither(self) -> None:
         """Start CRISP dither calibration."""
-        try:
-            self.core.setProperty(
-                self._device_name, PropName.CRISP_STATE, PropValue.STATE_DITHER
-            )
-        except Exception as e:
-            print(e)
+        self.core.setProperty(
+            self._device_name, PropName.CRISP_STATE, PropValue.STATE_DITHER
+        )
 
     def set_state_gain_cal(self) -> None:
         """Start CRISP gain calibration."""
-        try:
-            self.core.setProperty(
-                self._device_name, PropName.CRISP_STATE, PropValue.STATE_GAIN_CAL
-            )
-        except Exception as e:
-            print(e)
+        self.core.setProperty(
+            self._device_name, PropName.CRISP_STATE, PropValue.STATE_GAIN_CAL
+        )
 
     def is_focus_locked(self) -> bool:
         """Check if CRISP is currently focus-locked."""
@@ -421,24 +415,15 @@ class CRISP:
     # Setter methods - update device properties
     def set_led_intensity(self, value: int) -> None:
         """Set the LED intensity."""
-        try:
-            self.core.setProperty(self._device_name, PropName.LED_INTENSITY, value)
-        except Exception as e:
-            print(e)
+        self.core.setProperty(self._device_name, PropName.LED_INTENSITY, value)
 
     def set_objective_na(self, value: float) -> None:
         """Set the objective numerical aperture."""
-        try:
-            self.core.setProperty(self._device_name, PropName.OBJECTIVE_NA, value)
-        except Exception as e:
-            print(e)
+        self.core.setProperty(self._device_name, PropName.OBJECTIVE_NA, value)
 
     def set_cal_gain(self, value: int) -> None:
         """Set the calibration gain."""
-        try:
-            self.core.setProperty(self._device_name, PropName.GAIN, value)
-        except Exception as e:
-            print(e)
+        self.core.setProperty(self._device_name, PropName.GAIN, value)
 
     def set_loop_gain(self, value: int) -> None:
         """Set the loop gain."""
@@ -448,24 +433,15 @@ class CRISP:
 
     def set_num_averages(self, value: int) -> None:
         """Set the number of averages."""
-        try:
-            self.core.setProperty(self._device_name, PropName.NUMBER_OF_AVERAGES, value)
-        except Exception as e:
-            print(e)
+        self.core.setProperty(self._device_name, PropName.NUMBER_OF_AVERAGES, value)
 
     def set_update_rate(self, value: int) -> None:
         """Set the update rate."""
-        try:
-            self.core.setProperty(self._device_name, PropName.NUMBER_OF_SKIPS, value)
-        except Exception as e:
-            print(e)
+        self.core.setProperty(self._device_name, PropName.NUMBER_OF_SKIPS, value)
 
     def set_lock_range(self, value: float) -> None:
         """Set the lock range."""
-        try:
-            self.core.setProperty(self._device_name, PropName.MAX_LOCK_RANGE, value)
-        except Exception as e:
-            print(e)
+        self.core.setProperty(self._device_name, PropName.MAX_LOCK_RANGE, value)
 
     def lock(self) -> None:
         """Lock the CRISP (enable continuous focus)."""
