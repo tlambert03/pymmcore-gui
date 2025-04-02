@@ -45,6 +45,8 @@ def _init_toggle_live(action: QCoreAction) -> None:
     mmc = action.mmc
 
     def _on_change() -> None:
+        if mmc.mda.is_running():
+            return
         _is_running = mmc.isSequenceRunning()
         action.setChecked(_is_running)
         _icon = "mdi:video-off-outline" if _is_running else "mdi:video-outline"
