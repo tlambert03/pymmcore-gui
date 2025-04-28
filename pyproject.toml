@@ -45,12 +45,13 @@ dependencies = [
     "pyright>=1.1.393",
     "pyyaml>=6.0.2",
     "qtconsole>=5.6.1",
-    "rich",                         # also in pymmcore-plus[cli] above
+    "rich", # also in pymmcore-plus[cli] above
     "superqt[cmap,iconify]>=0.7.1",
     "tifffile>=2024.12.12",
     "tqdm>=4.67.1",
     "zarr>=2.18.3,<3.0",
     "sentry-sdk>=2.20.0",
+    "app-model>=0.3.1",
 ]
 
 # TO USE pymmcore-nano, you need to add pymmcore-nano to dependencies
