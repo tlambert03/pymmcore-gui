@@ -12,7 +12,9 @@ from pymmcore_gui.widgets._exception_log import ExceptionLog
 from pymmcore_gui.widgets._mm_console import MMConsole
 from pymmcore_gui.widgets._stage_control import StagesControlWidget
 
-IS_ACQUISITION_RUNNING = Name("is_acquisition_running")
+# ######################### Global State Keys #########################
+
+IS_ACQUISITION_RUNNING = Name[bool]("is_acquisition_running")
 
 
 # ######################## Functions acting on the Core #########################
@@ -24,24 +26,6 @@ class CoreAction(ActionKey):
     LOAD_DEMO_CONFIG = "pymm.load_demo_config"
 
 
-class WidgetAction(ActionKey):
-    """Widget Actions toggle/create singleton widgets."""
-
-    ABOUT = "pymm.wdg.about_widget"
-    PROP_BROWSER = "pymm.wdg.property_browser"
-    PIXEL_CONFIG = "pymm.wdg.pixel_config_widget"
-    INSTALL_DEVICES = "pymm.wdg.install_devices_widget"
-    MDA_WIDGET = "pymm.wdg.mda_widget"
-    CONFIG_GROUPS = "pymm.wdg.config_groups_widget"
-    CAMERA_ROI = "pymm.wdg.camera_roi_widget"
-    CONSOLE = "pymm.wdg.console"
-    EXCEPTION_LOG = "pymm.wdg.exception_log"
-    STAGE_CONTROL = "pymm.wdg.stage_control_widget"
-    CONFIG_WIZARD = "pymm.wdg.hardware_config_wizard"
-
-
-# TODO: perhaps have alternate signatures for these functions that take a
-# CMMCorePlus instance, rather than needing to extract it from the QCoreAction.
 def snap_image(mmcore: CMMCorePlus) -> None:
     """Snap an image, stopping sequence if running."""
     if mmcore.isSequenceRunning():
@@ -62,7 +46,23 @@ def load_demo_config(mmcore: CMMCorePlus) -> None:
     mmcore.loadSystemConfiguration()
 
 
-# -----------------------
+# ######################## Functions that create widgets #########################
+
+
+class WidgetAction(ActionKey):
+    """Widget Actions toggle/create singleton widgets."""
+
+    ABOUT = "pymm.wdg.about_widget"
+    PROP_BROWSER = "pymm.wdg.property_browser"
+    PIXEL_CONFIG = "pymm.wdg.pixel_config_widget"
+    INSTALL_DEVICES = "pymm.wdg.install_devices_widget"
+    MDA_WIDGET = "pymm.wdg.mda_widget"
+    CONFIG_GROUPS = "pymm.wdg.config_groups_widget"
+    CAMERA_ROI = "pymm.wdg.camera_roi_widget"
+    CONSOLE = "pymm.wdg.console"
+    EXCEPTION_LOG = "pymm.wdg.exception_log"
+    STAGE_CONTROL = "pymm.wdg.stage_control_widget"
+    CONFIG_WIZARD = "pymm.wdg.hardware_config_wizard"
 
 
 def create_property_browser(mmcore: CMMCorePlus) -> pmmw.PropertyBrowser:
@@ -151,6 +151,8 @@ def create_about_widget() -> QWidget:
 
     return AboutWidget()
 
+
+# ######################## Actions for the GUI #########################
 
 ACTIONS: list[Action] = [
     Action(

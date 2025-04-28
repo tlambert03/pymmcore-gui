@@ -1,9 +1,9 @@
 from ._actions import ACTIONS, CoreAction, WidgetAction
-from ._app import my_app
+from ._app import mmgui_app_model
 
 __all__ = [
     "ACTIONS",
     "CoreAction",
     "WidgetAction",
-    "my_app",
+    "mmgui_app_model",
 ]
