@@ -1,4 +1,6 @@
 # pyright: reportCallIssue=none
+from typing import Callable
+
 import pymmcore_widgets as pmmw
 from app_model.expressions import Name
 from app_model.types import Action, KeyBindingRule, KeyCode, KeyMod
@@ -152,6 +154,11 @@ def create_about_widget() -> QWidget:
     return AboutWidget()
 
 
+class _WidgetAction(Action):
+    create_widget: Callable[[], QWidget]
+    def __init__(self, *args, **kwargs):
+
+
 # ######################## Actions for the GUI #########################
 
 ACTIONS: list[Action] = [
@@ -179,11 +186,14 @@ ACTIONS: list[Action] = [
         title="Load Demo Configuration",
         icon="mdi:video-outline",
         callback=load_demo_config,
+        menus=["Window"],
     ),
+    # ----------------------- Widget Actions -----------------------
     Action(
         id=WidgetAction.ABOUT,
         title="About Pymmcore Gui",
         callback=create_about_widget,
+        menus=["Window"],
     ),
     Action(
         id=WidgetAction.CONSOLE,
@@ -192,6 +202,7 @@ ACTIONS: list[Action] = [
         icon="iconoir:terminal",
         callback=create_mm_console,
         dock_area=DockWidgetArea.BottomDockWidgetArea,
+        menus=["Window"],
     ),
     Action(
         id=WidgetAction.PROP_BROWSER,
@@ -200,6 +211,7 @@ ACTIONS: list[Action] = [
         icon="mdi-light:format-list-bulleted",
         callback=create_property_browser,
         dock_area=SideBarLocation.SideBarLeft,
+        menus=["Window"],
     ),
     Action(
         id=WidgetAction.INSTALL_DEVICES,
@@ -207,6 +219,7 @@ ACTIONS: list[Action] = [
         shortcut="Ctrl+Shift+I",
         icon="mdi-light:download",
         callback=create_install_widgets,
+        menus=["Window"],
     ),
     Action(
         id=WidgetAction.MDA_WIDGET,
@@ -214,6 +227,7 @@ ACTIONS: list[Action] = [
         shortcut="Ctrl+Shift+M",
         icon="qlementine-icons:cube-16",
         callback=create_mda_widget,
+        menus=["Window"],
     ),
     Action(
         id=WidgetAction.CAMERA_ROI,
@@ -222,6 +236,7 @@ ACTIONS: list[Action] = [
         icon="material-symbols-light:screenshot-region-rounded",
         callback=create_camera_roi,
         dock_area=DockWidgetArea.LeftDockWidgetArea,
+        menus=["Window"],
     ),
     Action(
         id=WidgetAction.CONFIG_GROUPS,
@@ -230,6 +245,7 @@ ACTIONS: list[Action] = [
         icon="mdi-light:format-list-bulleted",
         callback=create_config_groups,
         dock_area=DockWidgetArea.LeftDockWidgetArea,
+        menus=["Window"],
     ),
     Action(
         id=WidgetAction.PIXEL_CONFIG,
@@ -237,6 +253,7 @@ ACTIONS: list[Action] = [
         shortcut="Ctrl+Shift+X",
         icon="mdi-light:grid",
         callback=create_pixel_config,
+        menus=["Window"],
     ),
     Action(
         id=WidgetAction.EXCEPTION_LOG,
@@ -244,6 +261,7 @@ ACTIONS: list[Action] = [
         shortcut="Ctrl+Shift+E",
         icon="mdi-light:alert",
         callback=create_exception_log,
+        menus=["Window"],
     ),
     Action(
         id=WidgetAction.STAGE_CONTROL,
@@ -252,11 +270,13 @@ ACTIONS: list[Action] = [
         icon="fa:arrows",
         callback=create_stage_widget,
         dock_area=DockWidgetArea.LeftDockWidgetArea,
+        menus=["Window"],
     ),
     Action(
         id=WidgetAction.CONFIG_WIZARD,
         title="Hardware Config Wizard",
         icon="mdi:cog",
         callback=create_config_wizard,
+        menus=["Window"],
     ),
 ]

@@ -33,7 +33,7 @@ from pymmcore_gui.actions._core_qaction import QCoreAction
 from ._ndv_viewers import NDVViewersManager
 from ._notification_manager import NotificationManager
 from ._settings import Settings
-from .actions import CoreAction, WidgetAction
+from .actions import WidgetAction
 from .actions._action_info import ActionInfo
 
 try:
@@ -41,11 +41,8 @@ try:
 except ImportError:
     from pymmcore_widgets import ImagePreview  # type: ignore
 
-from .widgets._toolbars import OCToolBar
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
-
     import ndv
     from pymmcore_widgets import (
         CameraRoiWidget,
@@ -111,30 +108,30 @@ def _create_window_menu(mmc: CMMCorePlus, parent: MicroManagerGUI) -> QMenu:
 class MicroManagerGUI(QMainWindow):
     """Micro-Manager minimal GUI."""
 
-    # Toolbars are a mapping of strings to either a list of ActionKeys or a callable
-    # that takes a CMMCorePlus instance and QMainWindow and returns a QToolBar.
-    TOOLBARS: Mapping[str, ToolDictValue] = {
-        Toolbar.CAMERA_ACTIONS: [
-            CoreAction.SNAP,
-            CoreAction.TOGGLE_LIVE,
-        ],
-        Toolbar.OPTICAL_CONFIGS: OCToolBar,
-        # Toolbar.SHUTTERS: ShuttersToolbar,
-        Toolbar.WIDGETS: [
-            WidgetAction.CONSOLE,
-            WidgetAction.PROP_BROWSER,
-            WidgetAction.MDA_WIDGET,
-            WidgetAction.STAGE_CONTROL,
-            WidgetAction.CAMERA_ROI,
-        ],
-    }
-    # Menus are a mapping of strings to either a list of ActionKeys or a callable
-    # that takes a CMMCorePlus instance and QMainWindow and returns a QMenu.
-    MENUS: Mapping[str, MenuDictValue] = {
-        Menu.PYMM_GUI: [WidgetAction.ABOUT],
-        Menu.WINDOW: _create_window_menu,
-        Menu.HELP: [CoreAction.LOAD_DEMO],
-    }
+    # # Toolbars are a mapping of strings to either a list of ActionKeys or a callable
+    # # that takes a CMMCorePlus instance and QMainWindow and returns a QToolBar.
+    # TOOLBARS: Mapping[str, ToolDictValue] = {
+    #     Toolbar.CAMERA_ACTIONS: [
+    #         CoreAction.SNAP,
+    #         CoreAction.TOGGLE_LIVE,
+    #     ],
+    #     Toolbar.OPTICAL_CONFIGS: OCToolBar,
+    #     # Toolbar.SHUTTERS: ShuttersToolbar,
+    #     Toolbar.WIDGETS: [
+    #         WidgetAction.CONSOLE,
+    #         WidgetAction.PROP_BROWSER,
+    #         WidgetAction.MDA_WIDGET,
+    #         WidgetAction.STAGE_CONTROL,
+    #         WidgetAction.CAMERA_ROI,
+    #     ],
+    # }
+    # # Menus are a mapping of strings to either a list of ActionKeys or a callable
+    # # that takes a CMMCorePlus instance and QMainWindow and returns a QMenu.
+    # MENUS: Mapping[str, MenuDictValue] = {
+    #     Menu.PYMM_GUI: [WidgetAction.ABOUT],
+    #     Menu.WINDOW: _create_window_menu,
+    #     Menu.HELP: [CoreAction.LOAD_DEMO],
+    # }
 
     def __init__(self, *, mmcore: CMMCorePlus | None = None) -> None:
         super().__init__()
@@ -181,14 +178,19 @@ class MicroManagerGUI(QMainWindow):
         # MENUS ====================================
         # To add menus or menu items, add them to the MENUS dict above
 
-        for name, entry in self.MENUS.items():
-            self._add_menubar(name, entry)
+        from app_model.backends.qt import QModelMenuBar
+
+        from ._app_model import mmgui_app_model
+
+        self.setMenuBar(QModelMenuBar(["Window"], mmgui_app_model, self))
+        # for name, entry in self.MENUS.items():
+        #     self._add_menubar(name, entry)
 
         # TOOLBARS =================================
         # To add toolbars or toolbar items, add them to the TOOLBARS dict above
 
-        for name, tb_entry in self.TOOLBARS.items():
-            self._add_toolbar(name, tb_entry)
+        # for name, tb_entry in self.TOOLBARS.items():
+        #     self._add_toolbar(name, tb_entry)
 
         # LAYOUT ======================================
 
