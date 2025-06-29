@@ -4,8 +4,6 @@ from dataclasses import asdict
 from PyQt6 import QtWidgets as QtW
 from PyQt6.QtCore import Qt
 
-from pymmcore_gui.theme.model import QSS_TEMPLATE
-
 
 class TestWidget(QtW.QWidget):
     """Widget to test various PyQt6 widgets with styling."""
@@ -118,11 +116,13 @@ class TestWidget(QtW.QWidget):
 
 
 if __name__ == "__main__":
-    from pymmcore_gui.theme.model import MACOS_DARK
+    from pymmcore_gui.theme.model import MACOS_DARK, MACOS_QSS_TEMPLATE
 
     dest = sys.argv[1] if len(sys.argv) > 1 else "test_widget_screenshot.png"
     app = QtW.QApplication(sys.argv)
-    app.setStyleSheet(QSS_TEMPLATE.format(**asdict(MACOS_DARK.active)))
+    SS = MACOS_QSS_TEMPLATE.format(**asdict(MACOS_DARK.active))
+    print(SS)
+    app.setStyleSheet(SS)
     app.setPalette(MACOS_DARK.to_qpalette())
     window = TestWidget()
     window.show()

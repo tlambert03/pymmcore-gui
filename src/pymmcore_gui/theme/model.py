@@ -9,6 +9,7 @@ from pyconify import svg_path
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
+    from pathlib import Path
     from typing import Literal, TypeAlias
 
     from PyQt6.QtGui import QPalette
@@ -126,7 +127,7 @@ class ColorGroup:
     no_role: str = ""
     """This special role is often used to indicate that a role has not been assigned."""
 
-    down_arrow_svg: str = str(svg_path("fluent:chevron-down-16-filled", color="white"))
+    down_arrow_svg: Path = svg_path("fluent:chevron-down-16-filled", color="white")
 
     def __rich_repr__(self) -> Iterator[tuple[str, str]]:
         """Rich repr without default values."""
