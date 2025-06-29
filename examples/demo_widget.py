@@ -1,8 +1,6 @@
-import sys
-from dataclasses import asdict
-
 from PyQt6 import QtWidgets as QtW
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QTimer
+from superqt import QIconifyIcon
 
 
 class TestWidget(QtW.QWidget):
@@ -14,8 +12,15 @@ class TestWidget(QtW.QWidget):
         self.setWindowTitle("QWidget Styling Test")
         self.setMinimumSize(600, 400)
 
-        # Main Layout
-        main_layout = QtW.QVBoxLayout(self)
+        toolbar = QtW.QToolBar("QToolBar")
+        action = toolbar.addAction("Copy")
+        if btn := toolbar.widgetForAction(action):
+            btn.setObjectName("copy_action")
+
+        toolbar.addAction(QIconifyIcon("mdi:content-paste"), "Paste")
+        if act := toolbar.addAction(QIconifyIcon("mdi:toggle-switch"), "Toggle"):
+            act.setCheckable(True)
+            act.setChecked(True)
 
         # Label
         label = QtW.QLabel("QLabel: This is a test label.")
@@ -93,6 +98,7 @@ class TestWidget(QtW.QWidget):
 
         # Layouts for Widgets
         widget_layout = QtW.QVBoxLayout()
+        widget_layout.addWidget(toolbar)
         widget_layout.addWidget(label)
         widget_layout.addWidget(line_edit)
         widget_layout.addWidget(button)
@@ -111,20 +117,43 @@ class TestWidget(QtW.QWidget):
         widget_layout.addWidget(text_edit)
 
         # Add Widgets to Main Layout
+        main_layout = QtW.QVBoxLayout(self)
         main_layout.addLayout(widget_layout)
-        self.setLayout(main_layout)
 
 
 if __name__ == "__main__":
-    from pymmcore_gui.theme.model import MACOS_DARK, MACOS_QSS_TEMPLATE
+    from argparse import ArgumentParser
 
-    dest = sys.argv[1] if len(sys.argv) > 1 else "test_widget_screenshot.png"
-    app = QtW.QApplication(sys.argv)
-    SS = MACOS_QSS_TEMPLATE.format(**asdict(MACOS_DARK.active))
-    print(SS)
-    app.setStyleSheet(SS)
-    app.setPalette(MACOS_DARK.to_qpalette())
+    parser = ArgumentParser(description="Capture a screenshot of the TestWidget.")
+    parser.add_argument(
+        "dest",
+        nargs="?",
+        default="demo_widget.png",
+        help="Output file for the screenshot (default: demo_widget.png)",
+    )
+    parser.add_argument(
+        "--theme",
+        default="",
+        help="Theme to apply to the application (default: macos-dark)",
+    )
+    parser.add_argument(
+        "--run",
+        action="store_true",
+        help="Run the application instead of capturing a screenshot",
+    )
+    args = parser.parse_args()
+    app = QtW.QApplication([])
+    if args.theme:
+        from pymmcore_gui.theme.model import get_theme
+
+        get_theme(args.theme).apply_to_qapplication(app)
+
     window = TestWidget()
     window.show()
-    buffer = window.grab()
-    buffer.save(dest, "PNG")
+
+    if args.run:
+        app.exec()
+    else:
+        app.processEvents()
+        QTimer.singleShot(10, lambda: window.grab().save(args.dest, "PNG"))
+        app.processEvents()

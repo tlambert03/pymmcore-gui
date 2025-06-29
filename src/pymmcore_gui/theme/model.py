@@ -1,18 +1,16 @@
 from __future__ import annotations
 
-import re
-from collections import defaultdict
-from dataclasses import asdict, dataclass, field, fields
+from dataclasses import asdict, dataclass, field
 from typing import TYPE_CHECKING, cast
 
 from pyconify import svg_path
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
-    from pathlib import Path
     from typing import Literal, TypeAlias
 
     from PyQt6.QtGui import QPalette
+    from PyQt6.QtWidgets import QApplication
 
     ColorGroupName: TypeAlias = Literal["active", "inactive", "disabled"]
     ColorRoleName: TypeAlias = Literal[
@@ -43,7 +41,7 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True, slots=True)
 class ColorGroup:
-    """Qt Palette model."""
+    """Qt ColorGroup model."""
 
     window: str = ""
     """A general background color."""
@@ -127,13 +125,25 @@ class ColorGroup:
     no_role: str = ""
     """This special role is often used to indicate that a role has not been assigned."""
 
-    down_arrow_svg: Path = svg_path("fluent:chevron-down-16-filled", color="white")
-
     def __rich_repr__(self) -> Iterator[tuple[str, str]]:
         """Rich repr without default values."""
         for key, value in asdict(self).items():
             if value:
                 yield key, value
+
+
+@dataclass(frozen=True, slots=True)
+class Icons:
+    """Icons used in the theme."""
+
+    down_arrow_svg: str = "fluent:chevron-down-16-filled"
+    """Down arrow used to the right of, e.g. ComboBox."""
+
+    def to_posix(self, color: str | None = None) -> dict[str, str]:
+        """Convert to a dictionary with paths as posix strings."""
+        return {
+            k: svg_path(v, color=color).as_posix() for k, v in asdict(self).items() if v
+        }
 
 
 @dataclass(frozen=True, slots=True)
@@ -164,114 +174,15 @@ class Palette:
     @classmethod
     def from_qpalette(cls, qpalette: QPalette) -> Palette:
         """Create a Palette from a QPalette."""
-        from PyQt6.QtGui import QPalette
+        from .adapters import qpalette_to_palette
 
-        CG = QPalette.ColorGroup
-        CR = QPalette.ColorRole
-
-        data = defaultdict[str, dict](dict)
-        for group in (CG.Active, CG.Inactive, CG.Disabled):
-            group_name = group.name.lower()
-            for role in CR:
-                if role == CR.NColorRoles:
-                    continue
-                role_name = _to_snake_case(role.name)
-                color = qpalette.color(group, role).name()
-                if group == CG.Active or (data["active"][role_name] != color):
-                    data[group_name][role_name] = color
-
-        return cls(
-            active=ColorGroup(**data["active"]),
-            inactive=ColorGroup(**data["inactive"]),
-            disabled=ColorGroup(**data["disabled"]),
-        )
+        return qpalette_to_palette(qpalette, cls)
 
     def to_qpalette(self) -> QPalette:
         """Convert to a QPalette."""
-        from PyQt6.QtGui import QColor, QGuiApplication
+        from .adapters import palette_to_qpalette
 
-        qpalette = QGuiApplication.palette()
-        for group in ("active", "inactive", "disabled"):
-            qgroup = getattr(qpalette.ColorGroup, group.capitalize())
-            for field_ in fields(ColorGroup):
-                role_name = cast("ColorRoleName", field_.name)
-                try:
-                    qrole = getattr(qpalette.ColorRole, _to_camel_case(role_name))
-                except AttributeError:
-                    continue
-                color = self.color(group, role_name)
-                qpalette.setColor(qgroup, qrole, QColor(color))
-        return qpalette
-
-
-def _to_snake_case(s: str) -> str:
-    return re.sub(r"(?<!^)(?=[A-Z])", "_", s).lower()
-
-
-def _to_camel_case(s: str) -> str:
-    return "".join(word.title() for word in s.split("_"))
-
-
-MACOS_LIGHT = Palette(
-    active=ColorGroup(
-        window="#ececec",
-        window_text="#000000",
-        base="#ffffff",
-        alternate_base="#f5f5f5",
-        tool_tip_base="#ffffff",
-        tool_tip_text="#000000",
-        placeholder_text="#000000",
-        text="#000000",
-        button="#ececec",
-        button_text="#000000",
-        bright_text="#ffffff",
-        light="#ffffff",
-        midlight="#f5f5f5",
-        mid="#a9a9a9",
-        dark="#bfbfbf",
-        shadow="#000000",
-        highlight="#a5cdff",
-        accent="#0a60ff",
-        highlighted_text="#000000",
-        link="#094fd1",
-        link_visited="#ff00ff",
-        no_role="#000000",
-    ),
-    inactive=ColorGroup(highlight="#d4d4d4", link="#0000ff"),
-    disabled=ColorGroup(base="#ececec", highlight="#d4d4d4", link="#0000ff"),
-)
-
-MACOS_DARK = Palette(
-    active=ColorGroup(
-        window="#323232",
-        window_text="#ffffff",
-        base="#171717",
-        alternate_base="#989898",
-        tool_tip_base="#ffffff",
-        tool_tip_text="#000000",
-        placeholder_text="#595959",
-        text="#ffffff",
-        # button="#323232", # from Qt
-        button="#656565",  # measured
-        button_text="#ffffff",
-        # bright_text="#373737", # from Qt
-        bright_text="#E7E7E7",  # measured
-        light="#373737",
-        midlight="#343434",
-        mid="#242424",
-        dark="#bfbfbf",
-        shadow="#000000",
-        # highlight="#314f78",
-        highlight="#007AFF",  # default macos blue
-        accent="#0a60ff",
-        highlighted_text="#ffffff",
-        link="#3586ff",
-        link_visited="#ff00ff",
-        no_role="#000000",
-    ),
-    inactive=ColorGroup(button_text="#000000", highlight="#363636", link="#0000ff"),
-    disabled=ColorGroup(base="#323232", highlight="#363636", link="#0000ff"),
-)
+        return palette_to_qpalette(self)
 
 
 # Define the QSS template
@@ -369,4 +280,155 @@ QTabBar::tab {{
 
 QTabBar::tab:selected {{
 }}
+
+QToolBar QToolButton#copy_action {{
+    qproperty-icon: url({down_arrow_svg});
+}}
 """
+
+THEME_REGISTRY: dict[str, Theme] = {}
+
+
+@dataclass(frozen=True, slots=True)
+class Theme:
+    """Theme model for the application."""
+
+    name: str
+    """Name of the theme."""
+
+    palette: Palette = field(default_factory=Palette)
+    """Palette used in the theme."""
+
+    qss_template: str = MACOS_QSS_TEMPLATE
+
+    icons: Icons = field(default_factory=Icons)
+    """Icons used in the theme."""
+
+    def __post_init__(self) -> None:
+        """Post-initialization checks."""
+        if self.name in THEME_REGISTRY:
+            raise ValueError(f"Theme with name '{self.name}' already exists.")
+        THEME_REGISTRY[self.name] = self
+
+    def to_qpalette(self) -> QPalette:
+        """Convert to a QPalette."""
+        return self.palette.to_qpalette()
+
+    def to_qss(self) -> str:
+        """Convert to a QSS string."""
+        return self.qss_template.format(
+            **asdict(self.palette.active),
+            **self.icons.to_posix(color=self.palette.active.button_text or None),
+        )
+
+    def apply_to_qapplication(self, app: QApplication | None) -> None:
+        """Apply the theme to the given QApplication."""
+        if app is None:
+            from PyQt6.QtWidgets import QApplication
+
+            _app = QApplication.instance()
+            if _app is None:  # pragma: no cover
+                raise RuntimeError(
+                    "No QApplication instance found. Please create one first."
+                )
+            if not isinstance(_app, QApplication):  # pragma: no cover
+                raise TypeError(f"Expected a QApplication instance, got {type(_app)}")
+            app = _app
+        app.setStyleSheet(self.to_qss())
+        app.setPalette(self.to_qpalette())
+
+
+def get_theme(name: str) -> Theme:
+    """Get a theme by name."""
+    if (theme := THEME_REGISTRY.get(name)) is None:
+        available_themes = ", ".join(THEME_REGISTRY.keys())
+        raise ValueError(
+            f"Theme with name '{name}' not found. "
+            f"Available themes are: {available_themes}"
+        )
+    return theme
+
+
+MACOS_LIGHT = Theme(
+    name="macos-light",
+    qss_template=MACOS_QSS_TEMPLATE,
+    palette=Palette(
+        active=ColorGroup(
+            window="#ececec",
+            window_text="#000000",
+            base="#ffffff",
+            alternate_base="#f5f5f5",
+            tool_tip_base="#ffffff",
+            tool_tip_text="#000000",
+            placeholder_text="#000000",
+            text="#000000",
+            button="#ececec",
+            button_text="#000000",
+            bright_text="#ffffff",
+            light="#ffffff",
+            midlight="#f5f5f5",
+            mid="#a9a9a9",
+            dark="#bfbfbf",
+            shadow="#000000",
+            highlight="#a5cdff",
+            accent="#0a60ff",
+            highlighted_text="#000000",
+            link="#094fd1",
+            link_visited="#ff00ff",
+            no_role="#000000",
+        ),
+        inactive=ColorGroup(
+            highlight="#d4d4d4",
+            link="#0000ff",
+        ),
+        disabled=ColorGroup(
+            base="#ececec",
+            highlight="#d4d4d4",
+            link="#0000ff",
+        ),
+    ),
+)
+
+MACOS_DARK = Theme(
+    name="macos-dark",
+    qss_template=MACOS_QSS_TEMPLATE,
+    palette=Palette(
+        active=ColorGroup(
+            window="#323232",
+            window_text="#ffffff",
+            base="#171717",
+            alternate_base="#989898",
+            tool_tip_base="#ffffff",
+            tool_tip_text="#000000",
+            placeholder_text="#595959",
+            text="#ffffff",
+            # button="#323232", # from Qt
+            button="#656565",  # measured
+            button_text="#ffffff",
+            # bright_text="#373737", # from Qt
+            bright_text="#E7E7E7",  # measured
+            light="#373737",
+            midlight="#343434",
+            mid="#242424",
+            dark="#bfbfbf",
+            shadow="#000000",
+            # highlight="#314f78",
+            highlight="#007AFF",  # default macos blue
+            accent="#0a60ff",
+            highlighted_text="#ffffff",
+            link="#3586ff",
+            link_visited="#ff00ff",
+            no_role="#000000",
+        ),
+        inactive=ColorGroup(
+            button_text="#000000",
+            highlight="#363636",
+            link="#0000ff",
+        ),
+        disabled=ColorGroup(
+            base="#323232",
+            highlight="#363636",
+            link="#0000ff",
+        ),
+    ),
+)
