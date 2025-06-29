@@ -4,8 +4,12 @@ from dataclasses import asdict
 from PyQt6 import QtWidgets as QtW
 from PyQt6.QtCore import Qt
 
+from pymmcore_gui.theme.model import QSS_TEMPLATE
+
 
 class TestWidget(QtW.QWidget):
+    """Widget to test various PyQt6 widgets with styling."""
+
     def __init__(self) -> None:
         super().__init__()
 
@@ -113,92 +117,14 @@ class TestWidget(QtW.QWidget):
         self.setLayout(main_layout)
 
 
-# Define the QSS template
-QSS_TEMPLATE = """
-/* --------------------------------------- */
-
-QLineEdit, QAbstractSpinBox, QPushButton, QComboBox {{
-    border: 0.5px solid {mid};
-    placeholder-text-color: {placeholder_text};
-}}
-
-
-/* --------------------------------------- */
-
-/* border-gradient */
-
-QPushButton, QComboBox {{
-    height: 20px;
-    background-color: {button};
-    border-radius: 6px;
-    border-top-color: #848484;
-    border-bottom-color: #272727;
-    selection-background-color: {highlight};
-}}
-
-QPushButton::pressed {{
-    background-color: #7B7B7B;
-}}
-
-/* --------------------------------------- */
-
-
-QComboBox::drop-down:button {{
-    border-radius:4px;
-    background: {highlight};
-}}
-
-QComboBox::drop-down:button {{
-    border-radius: 4px;
-    margin: 1.5px;
-    width: 14px;
-    background-color: {highlight};
-}}
-
-QComboBox::down-arrow {{
-    image: url(/Users/talley/Downloads/fluent--chevron-up-down-16-filled.svg);
-}}
-
-/* --------------------------------------- */
-
-QSlider::add-page {{
-    background-color: #474747;
-}}
-
-QSlider::groove, QSlider::add-page {{
-    border: 0px;
-    border-radius: 2px;
-}}
-
-QSlider::groove::horizontal {{
-    height: 4px;
-}}
-
-QSlider::groove::vertical {{
-    width: 4px;
-}}
-
-QSlider::groove {{
-    background: {highlight};
-}}
-
-QSlider::handle {{
-    background: #9A9493;
-    border: 0.5px solid {mid};
-    width: 18px;
-    margin: -8px 0;
-    border-radius: 10px;
-}}
-
-
-"""
-
 if __name__ == "__main__":
     from pymmcore_gui.theme.model import MACOS_DARK
 
+    dest = sys.argv[1] if len(sys.argv) > 1 else "test_widget_screenshot.png"
     app = QtW.QApplication(sys.argv)
     app.setStyleSheet(QSS_TEMPLATE.format(**asdict(MACOS_DARK.active)))
     app.setPalette(MACOS_DARK.to_qpalette())
     window = TestWidget()
     window.show()
-    sys.exit(app.exec())
+    buffer = window.grab()
+    buffer.save(dest, "PNG")

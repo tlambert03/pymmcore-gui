@@ -5,6 +5,8 @@ from collections import defaultdict
 from dataclasses import asdict, dataclass, field, fields
 from typing import TYPE_CHECKING, cast
 
+from pyconify import svg_path
+
 if TYPE_CHECKING:
     from collections.abc import Iterator
     from typing import Literal, TypeAlias
@@ -124,7 +126,9 @@ class ColorGroup:
     no_role: str = ""
     """This special role is often used to indicate that a role has not been assigned."""
 
-    def __rich_repr__(self) -> Iterator[str, str]:
+    down_arrow_svg: str = str(svg_path("fluent:chevron-down-16-filled"))
+
+    def __rich_repr__(self) -> Iterator[tuple[str, str]]:
         """Rich repr without default values."""
         for key, value in asdict(self).items():
             if value:
@@ -150,7 +154,7 @@ class Palette:
     def color(self, group: ColorGroupName, role: ColorRoleName) -> str:
         """Return color for the given role and state."""
         color_group = getattr(self, group)
-        color = cast(str, getattr(color_group, role))
+        color = cast("str", getattr(color_group, role))
         if not color and group != "active":
             # it's possible that disabled should also check in inactive first...
             return self.color("active", role)
@@ -267,3 +271,82 @@ MACOS_DARK = Palette(
     inactive=ColorGroup(button_text="#000000", highlight="#363636", link="#0000ff"),
     disabled=ColorGroup(base="#323232", highlight="#363636", link="#0000ff"),
 )
+
+
+# Define the QSS template
+QSS_TEMPLATE = """
+/* --------------------------------------- */
+
+QLineEdit, QAbstractSpinBox, QPushButton, QComboBox {{
+    border: 0.5px solid {mid};
+    placeholder-text-color: {placeholder_text};
+}}
+
+
+/* --------------------------------------- */
+
+/* border-gradient */
+
+QPushButton, QComboBox {{
+    height: 20px;
+    background-color: {button};
+    border-radius: 6px;
+    border-top-color: #848484;
+    border-bottom-color: #272727;
+    selection-background-color: {highlight};
+}}
+
+QPushButton::pressed {{
+    background-color: #7B7B7B;
+}}
+
+/* --------------------------------------- */
+
+
+QComboBox::drop-down:button {{
+    border-radius:4px;
+    background: {highlight};
+}}
+
+QComboBox::drop-down:button {{
+    border-radius: 4px;
+    margin: 1.5px;
+    width: 14px;
+    background-color: {highlight};
+}}
+
+QComboBox::down-arrow {{
+    image: url({down_arrow_svg});
+}}
+
+/* --------------------------------------- */
+
+QSlider::add-page {{
+    background-color: #474747;
+}}
+
+QSlider::groove, QSlider::add-page {{
+    border: 0px;
+    border-radius: 2px;
+}}
+
+QSlider::groove::horizontal {{
+    height: 4px;
+}}
+
+QSlider::groove::vertical {{
+    width: 4px;
+}}
+
+QSlider::groove {{
+    background: {highlight};
+}}
+
+QSlider::handle {{
+    background: #9A9493;
+    border: 0.5px solid {mid};
+    width: 18px;
+    margin: -8px 0;
+    border-radius: 10px;
+}}
+"""
