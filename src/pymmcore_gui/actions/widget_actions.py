@@ -2,28 +2,46 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import TYPE_CHECKING, Generic, TypeVar, cast
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Annotated, TypeVar, cast
 
 from pymmcore_plus import CMMCorePlus
-from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QAction
 
-from pymmcore_gui.actions._action_info import ActionKey
+from pymmcore_gui._qt.QtAds import CDockWidget, DockWidgetArea, SideBarLocation
+from pymmcore_gui._qt.QtCore import Qt
+from pymmcore_gui._qt.QtGui import QAction
+from pymmcore_gui._qt.QtWidgets import QDialog, QVBoxLayout, QWidget
 
-from ._action_info import ActionInfo
+from ._action_info import ActionKey, WidgetActionInfo, _ensure_isinstance
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
-
     import pymmcore_widgets as pmmw
-    from PyQt6.QtCore import QObject
-    from PyQt6.QtWidgets import QWidget
 
     from pymmcore_gui._main_window import MicroManagerGUI
+    from pymmcore_gui._qt.QtCore import QObject
     from pymmcore_gui.widgets._exception_log import ExceptionLog
     from pymmcore_gui.widgets._mm_console import MMConsole
     from pymmcore_gui.widgets._stage_control import StagesControlWidget
+
+QWidgetType = Annotated[QWidget, _ensure_isinstance(QWidget)]
+
+CT = TypeVar("CT", bound=Callable[[QWidget], QWidget])
+
+
+class WidgetAction(ActionKey):
+    """Widget Actions toggle/create singleton widgets."""
+
+    ABOUT = "pymmcore_gui.about_widget"
+    PROP_BROWSER = "pymmcore_gui.property_browser"
+    PIXEL_CONFIG = "pymmcore_gui.pixel_config_widget"
+    INSTALL_DEVICES = "pymmcore_gui.install_devices_widget"
+    MDA_WIDGET = "pymmcore_gui.mda_widget"
+    CONFIG_GROUPS = "pymmcore_gui.config_groups_widget"
+    CAMERA_ROI = "pymmcore_gui.camera_roi_widget"
+    CONSOLE = "pymmcore_gui.console"
+    EXCEPTION_LOG = "pymmcore_gui.exception_log"
+    STAGE_CONTROL = "pymmcore_gui.stage_control_widget"
+    CONFIG_WIZARD = "pymmcore_gui.hardware_config_wizard"
 
 
 # ######################## Functions that create widgets #########################
@@ -53,13 +71,6 @@ def create_property_browser(parent: QWidget) -> pmmw.PropertyBrowser:
     return PropertyBrowser(parent=parent, mmcore=_get_core(parent))
 
 
-def create_about_widget(parent: QWidget) -> QWidget:
-    """Create an "about this program" widget."""
-    from pymmcore_gui.widgets._about_widget import AboutWidget
-
-    return AboutWidget(parent=parent)
-
-
 def create_mm_console(parent: QWidget) -> MMConsole:
     """Create a console widget."""
     from pymmcore_gui.widgets._mm_console import MMConsole
@@ -67,11 +78,20 @@ def create_mm_console(parent: QWidget) -> MMConsole:
     return MMConsole(parent=parent)
 
 
-def create_install_widgets(parent: QWidget) -> pmmw.InstallWidget:
+def create_install_widgets(parent: QWidget) -> QDialog:
     """Create the Install Devices widget."""
     from pymmcore_widgets import InstallWidget
 
-    wdg = InstallWidget(parent=parent)
+    class InstallDialog(QDialog):
+        def __init__(self, parent: QWidget | None = None):
+            super().__init__(parent)
+            self._install_widget = InstallWidget(parent=self)
+
+            layout = QVBoxLayout(self)
+            layout.setContentsMargins(0, 0, 0, 0)
+            layout.addWidget(self._install_widget)
+
+    wdg = InstallDialog(parent=parent)
     wdg.setWindowFlags(Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.Window)
     wdg.resize(800, 400)
     return wdg
@@ -135,83 +155,58 @@ def create_config_wizard(parent: QWidget) -> pmmw.ConfigWizard:
 # ######################## WidgetAction Enum #########################
 
 
-class WidgetAction(ActionKey):
-    """Widget Actions toggle/create singleton widgets."""
-
-    ABOUT = "About Pymmcore Gui"
-    PROP_BROWSER = "Property Browser"
-    PIXEL_CONFIG = "Pixel Configuration"
-    INSTALL_DEVICES = "Install Devices"
-    MDA_WIDGET = "MDA Widget"
-    CONFIG_GROUPS = "Configs and Preset"
-    CAMERA_ROI = "Camera ROI"
-    CONSOLE = "Console"
-    EXCEPTION_LOG = "Exception Log"
-    STAGE_CONTROL = "Stage Control"
-    CONFIG_WIZARD = "Hardware Config Wizard"
-
-    def create_widget(self, parent: QWidget) -> QWidget:
-        """Create the widget associated with this action."""
-        info: WidgetActionInfo[QWidget] = WidgetActionInfo.for_key(self)
-        if not info.create_widget:
-            raise NotImplementedError(f"No constructor has been provided for {self!r}")
-        return info.create_widget(parent)
-
-    def dock_area(self) -> Qt.DockWidgetArea | None:
-        """Return the default dock area for this widget."""
-        return WidgetActionInfo.for_key(self).dock_area
-
-
 # ######################## WidgetActionInfos #########################
 
-WT = TypeVar("WT", bound="QWidget")
 
+def create_about_widget(parent: QWidget) -> QWidget:
+    """Create an "about this program" widget."""
+    from pymmcore_gui.widgets._about_widget import AboutWidget
 
-@dataclass
-class WidgetActionInfo(ActionInfo, Generic[WT]):
-    """Subclass to set default values for WidgetAction."""
-
-    # by default, widget actions are checkable, and the check state indicates visibility
-    checkable: bool = True
-    # function that can be called with (parent: QWidget) -> QWidget
-    create_widget: Callable[[QWidget], WT] | None = None
-    # Use None to indicate that the widget should not be docked
-    dock_area: Qt.DockWidgetArea | None = Qt.DockWidgetArea.RightDockWidgetArea
+    return AboutWidget(parent=parent)
 
 
 show_about = WidgetActionInfo(
     key=WidgetAction.ABOUT,
+    text="About Pymmcore Gui...",
     create_widget=create_about_widget,
     dock_area=None,
+    checkable=False,
     menu_role=QAction.MenuRole.AboutRole,
+    scroll_mode=CDockWidget.eInsertMode.ForceNoScrollArea,
 )
 
 show_console = WidgetActionInfo(
     key=WidgetAction.CONSOLE,
+    text="Console",
     shortcut="Ctrl+Shift+C",
     icon="iconoir:terminal",
     create_widget=create_mm_console,
-    dock_area=Qt.DockWidgetArea.BottomDockWidgetArea,
+    dock_area=DockWidgetArea.BottomDockWidgetArea,
 )
 
 show_property_browser = WidgetActionInfo(
     key=WidgetAction.PROP_BROWSER,
+    text="Device Property Browser...",
     shortcut="Ctrl+Shift+P",
     icon="mdi-light:format-list-bulleted",
     create_widget=create_property_browser,
-    dock_area=None,
+    dock_area=SideBarLocation.SideBarLeft,
 )
 
 show_install_devices = WidgetActionInfo(
     key=WidgetAction.INSTALL_DEVICES,
+    text="Install Devices...",
     shortcut="Ctrl+Shift+I",
     icon="mdi-light:download",
     create_widget=create_install_widgets,
     dock_area=None,
+    checkable=False,
+    scroll_mode=CDockWidget.eInsertMode.ForceNoScrollArea,
 )
 
 show_mda_widget = WidgetActionInfo(
     key=WidgetAction.MDA_WIDGET,
+    text="MDA",
     shortcut="Ctrl+Shift+M",
     icon="qlementine-icons:cube-16",
     create_widget=create_mda_widget,
@@ -219,22 +214,26 @@ show_mda_widget = WidgetActionInfo(
 
 show_camera_roi = WidgetActionInfo(
     key=WidgetAction.CAMERA_ROI,
+    text="Camera ROI",
     shortcut="Ctrl+Shift+R",
     icon="material-symbols-light:screenshot-region-rounded",
     create_widget=create_camera_roi,
-    dock_area=Qt.DockWidgetArea.LeftDockWidgetArea,
+    dock_area=DockWidgetArea.LeftDockWidgetArea,
 )
 
 show_config_groups = WidgetActionInfo(
     key=WidgetAction.CONFIG_GROUPS,
+    text="Config Groups",
     shortcut="Ctrl+Shift+G",
     icon="mdi-light:format-list-bulleted",
     create_widget=create_config_groups,
-    dock_area=Qt.DockWidgetArea.LeftDockWidgetArea,
+    dock_area=DockWidgetArea.LeftDockWidgetArea,
+    scroll_mode=CDockWidget.eInsertMode.ForceNoScrollArea,
 )
 
 show_pixel_config = WidgetActionInfo(
     key=WidgetAction.PIXEL_CONFIG,
+    text="Pixel Size Configuration",
     shortcut="Ctrl+Shift+X",
     icon="mdi-light:grid",
     create_widget=create_pixel_config,
@@ -242,6 +241,7 @@ show_pixel_config = WidgetActionInfo(
 
 show_exception_log = WidgetActionInfo(
     key=WidgetAction.EXCEPTION_LOG,
+    text="Exception Log",
     shortcut="Ctrl+Shift+E",
     icon="mdi-light:alert",
     create_widget=create_exception_log,
@@ -250,15 +250,18 @@ show_exception_log = WidgetActionInfo(
 
 show_stage_control = WidgetActionInfo(
     key=WidgetAction.STAGE_CONTROL,
+    text="Stage Control",
     shortcut="Ctrl+Shift+S",
     icon="fa:arrows",
     create_widget=create_stage_widget,
-    dock_area=Qt.DockWidgetArea.LeftDockWidgetArea,
+    dock_area=DockWidgetArea.LeftDockWidgetArea,
 )
 
 show_config_wizard = WidgetActionInfo(
     key=WidgetAction.CONFIG_WIZARD,
+    text="Hardware Config Wizard...",
     icon="mdi:cog",
     create_widget=create_config_wizard,
     dock_area=None,
+    checkable=False,
 )

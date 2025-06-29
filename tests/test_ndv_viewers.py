@@ -6,10 +6,10 @@ from typing import TYPE_CHECKING
 
 import pytest
 import useq
-from PyQt6.QtWidgets import QApplication, QWidget
 from useq import MDASequence
 
 from pymmcore_gui._ndv_viewers import NDVViewersManager
+from pymmcore_gui._qt.QtWidgets import QApplication, QWidget
 
 if TYPE_CHECKING:
     from pymmcore_plus import CMMCorePlus
@@ -42,7 +42,6 @@ def test_viewers_manager(mmcore: CMMCorePlus, qtbot: QtBot) -> None:
             if "vispy" in type(viewer._canvas).__name__.lower():
                 # don't even bother... vispy is a mess of hard references
                 del viewer._canvas
-                del viewer._histogram
                 continue
             referrers = gc.get_referrers(viewer)[1:]
             pytest.fail(f"Viewer {viewer} not deleted. Still referenced by {referrers}")

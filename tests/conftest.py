@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import os
 
+from pymmcore_gui._settings import Settings
+
 # This is a temporary fix due to a `DeprecationWarning` from the `qtconsole` package:
 # """DeprecationWarning: Jupyter is migrating its paths to use standard platformdirs
 # given by the platformdirs library.  To remove this warning and
@@ -23,8 +25,9 @@ from pymmcore_gui import _app
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
-    from PyQt6.QtWidgets import QApplication
     from pytest import FixtureRequest
+
+    from pymmcore_gui._qt.QtWidgets import QApplication
 
 TEST_CONFIG = str(Path(__file__).parent / "test_config.cfg")
 
@@ -44,6 +47,14 @@ def mmcore() -> Iterator[CMMCorePlus]:
     with patch.object(_mmcore_plus, "_instance", mmc):
         yield mmc
     mmc.waitForSystem()
+
+
+# fresh default settings for every test
+@pytest.fixture(autouse=True)
+def settings() -> Iterator[Settings]:
+    settings = Settings()
+    with patch("pymmcore_gui._settings._GLOBAL_SETTINGS", settings):
+        yield settings
 
 
 @pytest.fixture()

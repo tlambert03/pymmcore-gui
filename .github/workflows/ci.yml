@@ -17,68 +17,72 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: pipx run check-manifest
-  pyright:
+
+  lint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@v6
         with:
           enable-cache: true
-
       - run: uv sync
-      - run: uv run pyright
+      - uses: pre-commit/action@v3.0.1
+        with:
+          extra_args: --all-files --verbose
 
   test:
-    name: ${{ matrix.platform }} py${{ matrix.python-version }}
-    runs-on: ${{ matrix.platform }}
+    name: ${{ matrix.os }} py${{ matrix.python-version }}${{ matrix.qt }}
+    runs-on: ${{ matrix.os }}
     env:
-      UV_FROZEN: true
+      UV_FROZEN: 1
+      UV_NO_SYNC: 1
     strategy:
       fail-fast: false
       matrix:
-        platform: [macos-13, windows-latest]
-        python-version: ["3.10", "3.11", "3.12"]
+        os: [macos-latest, windows-latest]
+        python-version: ["3.10", "3.12", "3.13"]
+        qt: [""]
+        include:
+          - os: windows-latest
+            python-version: "3.13"
+            qt: "PySide6"
 
     steps:
       - uses: actions/checkout@v4
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v6
         with:
           enable-cache: true
           python-version: ${{ matrix.python-version }}
 
-      - name: Install the project
-        run: uv sync
-
-      - uses: pyvista/setup-headless-display-action@v3
+      - uses: pymmcore-plus/setup-mm-test-adapters@main
+      - uses: pyvista/setup-headless-display-action@v4
         with:
           qt: true
 
-      - name: Set cache path
+      - name: Install
         shell: bash
         run: |
-          set -e
-          CACHE_PATH=$(uv run python -c 'from pymmcore_plus import install; print(install.USER_DATA_MM_PATH)')
-          echo "CACHE_PATH=$CACHE_PATH" >> $GITHUB_ENV
-
-      - name: Cache Drivers
-        id: cache-mm-build
-        uses: actions/cache@v4
-        with:
-          path: ${{ env.CACHE_PATH }}
-          key: ${{ runner.os }}-mmbuild
-
-      - name: Install Micro-Manager
-        if: steps.cache-mm-build.outputs.cache-hit != 'true'
-        run: uv run mmcore install
+          if [[ "${{ matrix.qt }}" == "PySide6" ]]; then
+            uv sync --group PySide6 --no-install-package PyQt6 --no-install-package PyQt6Ads
+          else
+            uv sync
+          fi
 
       - name: Test
-        run: uv run pytest -v --cov=pymmcore_gui --cov-report=xml --color=yes
+        run: uv run coverage run -p -m pytest -v --color=yes
 
-      - name: Coverage
-        uses: codecov/codecov-action@v5
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
         with:
-          token: ${{ secrets.CODECOV_TOKEN }}
+          name: covreport-${{ matrix.os }}-py${{ matrix.python-version }}-${{ matrix.qt }}
+          path: ./.coverage*
+          include-hidden-files: true
+
+  upload_coverage:
+    if: always()
+    needs: [test]
+    uses: pyapp-kit/workflows/.github/workflows/upload-coverage.yml@v2
+    secrets:
+      codecov_token: ${{ secrets.CODECOV_TOKEN }}

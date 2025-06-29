@@ -1,21 +1,25 @@
 import sys
-from unittest.mock import Mock
+from unittest.mock import patch
 
-from PyQt6.QtWidgets import QApplication
+import pytest
 from pytest import MonkeyPatch
 
-from pymmcore_gui import _app
+from pymmcore_gui import __main__, _app
+from pymmcore_gui._qt.QtWidgets import QApplication
 
 
+@pytest.mark.order(0)
 def test_main_app(monkeypatch: MonkeyPatch) -> None:
-    mock_exec = Mock()
-    monkeypatch.setattr(QApplication, "exec", mock_exec)
-    monkeypatch.setattr(sys, "argv", ["mmgui"])
-    _ = _app.main()  # must retain handle for scope of this test.
-    mock_exec.assert_called_once()
-    assert QApplication.instance()
-    assert isinstance(QApplication.instance(), _app.MMQApplication)
-    assert sys.excepthook == _app.ndv_excepthook
-    for wdg in QApplication.topLevelWidgets():
-        wdg.close()
-        wdg.deleteLater()
+    with patch.object(
+        _app.MMQApplication, "exec", lambda _: QApplication.processEvents()
+    ):
+        assert not QApplication.instance()
+        monkeypatch.setattr(sys, "argv", ["mmgui"])
+        with pytest.raises(SystemExit):
+            __main__.main()
+
+        assert QApplication.instance()
+        assert isinstance(QApplication.instance(), _app.MMQApplication)
+        assert hasattr(sys, "_original_excepthook_")
+        for wdg in QApplication.topLevelWidgets():
+            wdg.close()
