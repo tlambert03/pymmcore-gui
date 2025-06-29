@@ -126,7 +126,7 @@ class ColorGroup:
     no_role: str = ""
     """This special role is often used to indicate that a role has not been assigned."""
 
-    down_arrow_svg: str = str(svg_path("fluent:chevron-down-16-filled"))
+    down_arrow_svg: str = str(svg_path("fluent:chevron-down-16-filled", color="white"))
 
     def __rich_repr__(self) -> Iterator[tuple[str, str]]:
         """Rich repr without default values."""
@@ -274,7 +274,7 @@ MACOS_DARK = Palette(
 
 
 # Define the QSS template
-QSS_TEMPLATE = """
+MACOS_QSS_TEMPLATE = """
 /* --------------------------------------- */
 
 QLineEdit, QAbstractSpinBox, QPushButton, QComboBox {{
@@ -294,6 +294,7 @@ QPushButton, QComboBox {{
     border-top-color: #848484;
     border-bottom-color: #272727;
     selection-background-color: {highlight};
+    color: {button_text};
 }}
 
 QPushButton::pressed {{
@@ -303,20 +304,20 @@ QPushButton::pressed {{
 /* --------------------------------------- */
 
 
-QComboBox::drop-down:button {{
-    border-radius:4px;
-    background: {highlight};
+QComboBox {{
+    padding-left: 8px;
 }}
 
 QComboBox::drop-down:button {{
-    border-radius: 4px;
+    border-radius:4px;
     margin: 1.5px;
     width: 14px;
-    background-color: {highlight};
+    background-color: none;
 }}
 
 QComboBox::down-arrow {{
     image: url({down_arrow_svg});
+    margin-right: 4px;
 }}
 
 /* --------------------------------------- */
@@ -348,5 +349,23 @@ QSlider::handle {{
     width: 18px;
     margin: -8px 0;
     border-radius: 10px;
+}}
+
+/* --------------------------------------- */
+
+QTabWidget::pane {{
+    background: {light};
+    border: 1px solid #464646;
+    border-radius: 4px;
+    margin-top: -12px;
+}}
+
+QTabBar::tab {{
+    background: {button};
+    padding: 4px;
+    border-radius: 4px;
+}}
+
+QTabBar::tab:selected {{
 }}
 """
