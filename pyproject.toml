@@ -40,6 +40,7 @@ dependencies = [
     "pydantic-settings>=2.7.1",
     "pymmcore-plus[cli]>=0.13.2",
     "pymmcore-widgets>=0.10.1",
+    "pymmcore==11.10.0.74.0",
     "PyQt6==6.9.1",
     "PyQt6Ads==4.4.0.post2",
     "pyyaml>=6.0.2",
