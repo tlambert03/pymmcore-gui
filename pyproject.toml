@@ -72,6 +72,11 @@ test = [
     "pyautogui>=0.9.54",
     "pytest-order>=1.3.0",
 ]
+docs = [
+    "mkdocstrings-python>=2.0",
+    "pymmcore-docs-theme>=2025.1",
+    "zensical>=0.0.23",
+]
 dev = [
     { include-group = "test" },
     "diff-cover>=9.2.4",
