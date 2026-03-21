@@ -65,8 +65,8 @@ dependencies = [
 constraint-dependencies = ["chardet<6"]
 
 [tool.uv.sources]
+pyqt6-qlementine = { path = "../PyQlementine/packages/PyQt6-Qlementine", editable = false }
 pyside6-stubs = { git = "https://github.com/tlambert03/PySide6-stubs", rev = "v6.9.1" }
-pyqt6-qlementine = { path = "../PyQlementine/packages/PyQt6-Qlementine" }
 
 [dependency-groups]
 # should only be used after manually uninstalling PyQt6 and PyQt6Ads

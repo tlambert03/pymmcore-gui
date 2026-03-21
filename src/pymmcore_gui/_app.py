@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, Any, Literal, cast
 from superqt.utils import WorkerBase
 
 from pymmcore_gui import __version__
+from pymmcore_gui._ads_style import apply_dark_theme
 from pymmcore_gui._main_window import ICON, MicroManagerGUI
 from pymmcore_gui._qt.QtCore import QTimer, Signal
 from pymmcore_gui._qt.QtGui import QIcon
@@ -152,10 +153,10 @@ def create_mmgui(
 
     # --------------- Style ---------------
 
-    from ._ads_style import AdsAwareStyle
-    from ._qt.Qlementine import QlementineStyle
+    from ._ads_style import AdsAwareQlementineStyle
 
-    app.setStyle(AdsAwareStyle(QlementineStyle()))
+    app.setStyle(AdsAwareQlementineStyle())
+    apply_dark_theme(app.style())
 
     # -------------------------------------------------
 
