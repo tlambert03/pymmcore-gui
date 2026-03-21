@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import socket
 
 from pymmcore_gui._settings import Settings
 
@@ -32,6 +33,49 @@ if TYPE_CHECKING:
 TEST_CONFIG = str(Path(__file__).parent / "test_config.cfg")
 
 configure_logging(stderr_level="CRITICAL")
+
+# ---------------------------------------------------------------------------
+# Block all outgoing network connections so tests never hit the internet.
+# Any test that needs real networking should override with
+# @pytest.mark.usefixtures("allow_network")
+# ---------------------------------------------------------------------------
+
+_original_connect = socket.socket.connect
+
+
+def _guarded_connect(
+    self: socket.socket, address: object, *args: object, **kwargs: object
+) -> object:
+    """Allow only localhost / Unix-socket connections; block everything else."""
+    host = None
+    if isinstance(address, tuple) and len(address) >= 2:
+        host = str(address[0])
+
+    # Allow localhost, IPv4/v6 loopback, and Unix sockets (str path / None host)
+    if host is None or host in ("localhost", "127.0.0.1", "::1"):
+        return _original_connect(self, address, *args, **kwargs)
+
+    raise OSError(f"Tests are not allowed to make network connections (to {address!r})")
+
+
+@pytest.fixture(autouse=True, scope="session")
+def _block_network() -> Iterator[None]:
+    """Block all non-localhost socket connections for the entire test session."""
+    socket.socket.connect = _guarded_connect  # type: ignore[assignment]
+    try:
+        yield
+    finally:
+        socket.socket.connect = _original_connect  # type: ignore[assignment]
+
+
+@pytest.fixture()
+def allow_network() -> Iterator[None]:
+    """Opt-in fixture: restore real networking for a single test."""
+    socket.socket.connect = _original_connect  # type: ignore[assignment]
+    try:
+        yield
+    finally:
+        socket.socket.connect = _guarded_connect  # type: ignore[assignment]
 
 
 @pytest.fixture(scope="session")

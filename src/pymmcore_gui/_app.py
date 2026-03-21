@@ -150,9 +150,18 @@ def create_mmgui(
         # this is used in test_bundle.py to know when the app is ready
         print("READY", flush=True)
 
+    # --------------- Style ---------------
+
+    from ._ads_style import AdsAwareStyle
+    from ._qt.Qlementine import QlementineStyle
+
+    app.setStyle(AdsAwareStyle(QlementineStyle()))
+
     # -------------------------------------------------
 
     win = MicroManagerGUI(mmcore=mmcore)
+    win.dock_manager.setStyleSheet("")
+
     QTimer.singleShot(0, lambda: win.restore_state(show=True))
 
     # if False was passed, don't load any config at all

@@ -50,6 +50,7 @@ dependencies = [
     "tqdm>=4.67.1",
     "zarr>=2.18.3,<3.0",
     "sentry-sdk>=2.20.0",
+    "pyqt6-qlementine",
 ]
 
 # TO USE pymmcore-nano, you need to add pymmcore-nano to dependencies
@@ -65,6 +66,7 @@ constraint-dependencies = ["chardet<6"]
 
 [tool.uv.sources]
 pyside6-stubs = { git = "https://github.com/tlambert03/PySide6-stubs", rev = "v6.9.1" }
+pyqt6-qlementine = { path = "../PyQlementine/packages/PyQt6-Qlementine" }
 
 [dependency-groups]
 # should only be used after manually uninstalling PyQt6 and PyQt6Ads
@@ -82,6 +84,7 @@ dev = [
     "diff-cover>=9.2.4",
     "ipython>=8.30.0",
     "mypy>=1.13.0",
+    "pdbpp>=0.12.1 ; sys_platform != 'win32'",
     "prek>=0.3.5",
     "pyinstaller>=6.11.1",
     "pyright>=1.1.392.post0",
