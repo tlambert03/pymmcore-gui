@@ -55,6 +55,11 @@ def _main(
         resolve_path=True,
         help="Path to MM hardware config file.",
     ),
+    dark: bool = typer.Option(
+        False,
+        "--dark",
+        help="Use dark theme.",
+    ),
 ) -> None:
     """mmgui: pymmcore-gui command line (v{version}).
 
@@ -101,12 +106,22 @@ def run(
         "--no-telemetry",
         help="Disable telemetry.",
     ),
+    dark: bool = typer.Option(
+        False,
+        "--dark",
+        help="Use dark theme.",
+    ),
 ) -> None:
     """Run the Micro-Manager GUI (this is the default command)."""
     from pymmcore_gui import create_mmgui
 
     mm_config = "MMConfig_demo.cfg" if demo_config else config
-    create_mmgui(mm_config=mm_config, exec_app=True, install_sentry=not no_telemetry)
+    create_mmgui(
+        mm_config=mm_config,
+        exec_app=True,
+        install_sentry=not no_telemetry,
+        dark_theme=dark,
+    )
     sys.exit(0)
 
 

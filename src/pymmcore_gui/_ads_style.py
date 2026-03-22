@@ -14,6 +14,8 @@ Usage::
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, Any
+
 from pyconify import svg_path
 
 from pymmcore_gui._qt.Qlementine import (
@@ -26,19 +28,36 @@ from pymmcore_gui._qt.Qlementine import (
 from pymmcore_gui._qt.QtCore import QJsonDocument, QRectF, Qt
 from pymmcore_gui._qt.QtGui import QColor, QPalette, QPen
 from pymmcore_gui._qt.QtWidgets import (
+    QScrollArea,
     QStyle,
     QStyleOption,
     QStyleOptionToolButton,
     QWidget,
 )
 
+if TYPE_CHECKING:
+    from collections.abc import Mapping
+
+# QtAds widget objectNames
+ADS_TAB_CLOSE = "tabCloseButton"
+ADS_TAB_LABEL = "dockWidgetTabLabel"
+ADS_TABS_MENU = "tabsMenuButton"
+ADS_TABS_CONTAINER = "tabsContainerWidget"
+ADS_TITLE_BAR = "dockAreaTitleBar"
+ADS_AREA_CLOSE = "dockAreaCloseButton"
+ADS_AUTO_HIDE = "dockAreaAutoHideButton"
+ADS_DETACH = "detachGroupButton"
+
+# QtAds dynamic property names
+ADS_ACTIVE_TAB = "activeTab"
+
 # Icon keys for QtAds buttons, resolved via pyconify at runtime.
 _ADS_ICON_MAP = {
-    "tabCloseButton": "codicon:close",
-    "tabsMenuButton": "codicon:chevron-down",
-    "detachGroupButton": "tabler:queue-pop-out",
-    "dockAreaCloseButton": "codicon:close",
-    "dockAreaAutoHideButton": "codicon:pinned",
+    ADS_TAB_CLOSE: "codicon:close",
+    ADS_TABS_MENU: "codicon:chevron-down",
+    ADS_DETACH: "tabler:queue-pop-out",
+    ADS_AREA_CLOSE: "codicon:close",
+    ADS_AUTO_HIDE: "codicon:pinned",
 }
 
 
@@ -65,11 +84,11 @@ class AdsAwareQlementineStyle(QlementineStyle):
 
     def drawControl(self, element, option, painter, widget=None):
         if element == QStyle.ControlElement.CE_ShapedFrame and widget:
-            active = widget.property("activeTab")
+            active = widget.property(ADS_ACTIVE_TAB)
             if active is not None:
                 self._draw_dock_tab(option, painter, widget, bool(active))
                 return
-            if widget.objectName() == "dockAreaTitleBar":
+            if widget.objectName() == ADS_TITLE_BAR:
                 self._draw_title_bar(option, painter, widget)
                 return
         super().drawControl(element, option, painter, widget)
@@ -79,7 +98,7 @@ class AdsAwareQlementineStyle(QlementineStyle):
         if (
             control == QStyle.ComplexControl.CC_ToolButton
             and widget is not None
-            and widget.objectName() == "tabsMenuButton"
+            and widget.objectName() == ADS_TABS_MENU
             and isinstance(option, QStyleOptionToolButton)
         ):
             option.features &= ~QStyleOptionToolButton.ToolButtonFeature.HasMenu
@@ -101,18 +120,16 @@ class AdsAwareQlementineStyle(QlementineStyle):
             obj.setIcon(self.makeThemedIcon(str(svg_path(_ADS_ICON_MAP[name]))))
 
         # Flat close buttons so Qlementine skips the button bevel
-        if name == "tabCloseButton" and hasattr(obj, "setFlat"):
+        if name == ADS_TAB_CLOSE and hasattr(obj, "setFlat"):
             obj.setFlat(True)
 
         # Set title bar background on intermediate widgets that would
         # otherwise auto-fill with palette(Window), covering the
         # darker title bar painted by _draw_title_bar.
         tb_bg = self.tabBarBackgroundColor(MouseState.Normal)
-        if obj.property("activeTab") is not None or name == "tabsContainerWidget":
+        if obj.property(ADS_ACTIVE_TAB) is not None or name == ADS_TABS_CONTAINER:
             _set_widget_bg(obj, tb_bg)
-        elif name == "dockAreaTitleBar":
-            from pymmcore_gui._qt.QtWidgets import QScrollArea
-
+        elif name == ADS_TITLE_BAR:
             for child in obj.findChildren(QScrollArea):
                 _set_widget_bg(child, tb_bg)
                 _set_widget_bg(child.viewport(), tb_bg)
@@ -156,7 +173,7 @@ class AdsAwareQlementineStyle(QlementineStyle):
         for child in tab.children():
             if (
                 isinstance(child, QWidget)
-                and child.objectName() == "dockWidgetTabLabel"
+                and child.objectName() == ADS_TAB_LABEL
                 and child.palette().color(QPalette.ColorRole.WindowText) != target
             ):
                 pal = child.palette()

@@ -87,6 +87,7 @@ def create_mmgui(
     install_sys_excepthook: bool = True,
     install_sentry: bool = True,
     exec_app: bool = True,
+    dark_theme: bool = False,
 ) -> MicroManagerGUI:
     """Initialize the pymmcore-gui application and Main Window.
 
@@ -120,6 +121,8 @@ def create_mmgui(
         If True (the default), the QApplication event loop will be started.  If
         False, the event loop will not be started, and the caller is responsible for
         starting it with `QApplication.instance().exec()`.
+    dark_theme : bool
+        If True, applies a dark theme to the application.  Default is False.
     """
     global _QAPP
     # Note: in practice this should almost never be None,
@@ -156,7 +159,8 @@ def create_mmgui(
     from ._ads_style import AdsAwareQlementineStyle
 
     app.setStyle(AdsAwareQlementineStyle())
-    apply_dark_theme(app.style())
+    if dark_theme:
+        apply_dark_theme(app.style())
 
     # -------------------------------------------------
 
