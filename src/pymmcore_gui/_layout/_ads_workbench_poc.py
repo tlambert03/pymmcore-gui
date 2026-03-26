@@ -7,6 +7,8 @@ from __future__ import annotations
 
 from weakref import WeakKeyDictionary
 
+from superqt import QIconifyIcon
+
 from pymmcore_gui._qt.QtAds import (
     CDockAreaWidget,
     CDockManager,
@@ -28,6 +30,24 @@ from ._enums import PanelAlignment
 _PERIPHERALS = ("left", "bottom", "right")
 _DEFAULT_SIDEBAR_WIDTH = 250
 _DEFAULT_PANEL_HEIGHT = 200
+_MIN_SIDEBAR_WIDTH = 170
+_MIN_PANEL_HEIGHT = 80
+
+# Icon pairs: (on_icon_key, off_icon_key)
+_TOGGLE_ICONS = {
+    "left": ("codicon:layout-sidebar-left", "codicon:layout-sidebar-left-off"),
+    "bottom": ("codicon:layout-panel", "codicon:layout-panel-off"),
+    "right": (
+        "codicon:layout-sidebar-right",
+        "codicon:layout-sidebar-right-off",
+    ),
+}
+_ALIGN_ICONS = {
+    PanelAlignment.LEFT: "codicon:layout-panel-left",
+    PanelAlignment.CENTER: "codicon:layout-panel-center",
+    PanelAlignment.RIGHT: "codicon:layout-panel-right",
+    PanelAlignment.JUSTIFY: "codicon:layout-panel-justify",
+}
 _ALIGN_CYCLE = [
     PanelAlignment.LEFT,
     PanelAlignment.CENTER,
@@ -92,6 +112,7 @@ class AdsWorkbench(QWidget):
             "right": _DEFAULT_SIDEBAR_WIDTH,
             "bottom": _DEFAULT_PANEL_HEIGHT,
         }
+        self._collapsed: dict[str, bool] = dict.fromkeys(_PERIPHERALS, False)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -190,6 +211,12 @@ class AdsWorkbench(QWidget):
 
             # 7. Restore saved sizes
             self._restore_sizes()
+
+            # 8. Make peripheral areas collapsible and monitor splitters
+            self._wire_splitters()
+
+            # 9. Patch tabs menus to exclude anchor entries
+            self._patch_tabs_menus()
         finally:
             self._rebuilding = False
             self.setUpdatesEnabled(True)
@@ -254,8 +281,9 @@ class AdsWorkbench(QWidget):
         self._areas["center"].setAllowedAreas(DWA.NoDockWidgetArea)
 
         # Suppress NSEW overlay indicators (only needed once)
-        if not hasattr(self, "_overlays_suppressed"):
-            overlay = self._dock_manager.containerOverlay()
+        if not hasattr(self, "_overlays_suppressed") and (
+            overlay := self._dock_manager.containerOverlay()
+        ):
             overlay.showOverlay(self._dock_manager)
             overlay.hideOverlay()
             if app := QApplication.instance():
@@ -322,6 +350,110 @@ class AdsWorkbench(QWidget):
             except RuntimeError:
                 pass
 
+    # ------------------------------------------------------------------
+    #  Splitter-drag collapse
+    # ------------------------------------------------------------------
+
+    def _wire_splitters(self) -> None:
+        """Set minimum sizes and connect splitterMoved on parent splitters.
+
+        QSplitter natively snaps a collapsible widget to zero when dragged
+        below about half its minimum size.  We just set the minimum to
+        ``_MIN_REGION_SIZE`` and ``setCollapsible(True)`` — then monitor
+        ``splitterMoved`` to track collapsed state.
+        """
+        seen: set[int] = set()
+        for key in _PERIPHERALS:
+            area = self._areas.get(key)
+            if area is None:
+                continue
+            if key in ("left", "right"):
+                area.setMinimumWidth(_MIN_SIDEBAR_WIDTH)
+                area.setMinimumHeight(0)
+            else:
+                area.setMinimumHeight(_MIN_PANEL_HEIGHT)
+                area.setMinimumWidth(0)
+            try:
+                splitter = area.parentSplitter()
+            except RuntimeError:
+                continue
+            if splitter is None:
+                continue
+            idx = splitter.indexOf(area)
+            if idx >= 0:
+                splitter.setCollapsible(idx, True)
+            sid = id(splitter)
+            if sid not in seen:
+                seen.add(sid)
+                splitter.splitterMoved.connect(self._on_splitter_moved)
+
+    def _patch_tabs_menus(self) -> None:
+        """Remove anchor entries from each dock area's tabs dropdown menu.
+
+        QtAds's ``onTabsMenuAboutToShow`` rebuilds the menu from the tab
+        bar, including NoTab anchors (they're "open" even if invisible).
+        We connect a second handler that runs *after* the QtAds handler
+        (same signal, later connection order) and strips anchor actions.
+        """
+        anchor_titles = {dw.windowTitle() for dw in self._anchors.values()}
+        for key in _PERIPHERALS:
+            area = self._areas.get(key)
+            if area is None:
+                continue
+            try:
+                tb = area.titleBar()
+                if tb is None:
+                    continue
+                menu_btn = tb.findChild(QToolButton, "tabsMenuButton")
+                if menu_btn is None:
+                    continue
+                menu = menu_btn.menu()
+                if menu is None:
+                    continue
+            except RuntimeError:
+                continue
+            # Connect AFTER QtAds's own aboutToShow handler
+            menu.aboutToShow.connect(
+                lambda m=menu, names=anchor_titles: self._strip_anchor_actions(m, names)
+            )
+
+    @staticmethod
+    def _strip_anchor_actions(menu: QWidget, anchor_titles: set[str]) -> None:
+        for action in menu.actions():  # type: ignore[union-attr]
+            if action.text() in anchor_titles:
+                menu.removeAction(action)  # type: ignore[union-attr]
+
+    def _on_splitter_moved(self) -> None:
+        """Track collapsed state from native QSplitter snap-to-collapse."""
+        if self._rebuilding:
+            return
+        for key in _PERIPHERALS:
+            area = self._areas.get(key)
+            if area is None:
+                continue
+            try:
+                splitter = area.parentSplitter()
+                if splitter is None:
+                    continue
+                idx = splitter.indexOf(area)
+                if idx < 0:
+                    continue
+                sz = splitter.sizes()[idx]
+            except (RuntimeError, IndexError):
+                continue
+
+            was_collapsed = self._collapsed.get(key, False)
+            is_collapsed = sz == 0
+
+            if is_collapsed != was_collapsed:
+                self._collapsed[key] = is_collapsed
+            min_sz = (
+                _MIN_SIDEBAR_WIDTH if key in ("left", "right") else _MIN_PANEL_HEIGHT
+            )
+            if not is_collapsed and sz >= min_sz:
+                self._saved_sizes[key] = sz
+        self._sync_button_states()
+
     def _region_for_area(self, area: CDockAreaWidget | None) -> str | None:
         for key, a in self._areas.items():
             try:
@@ -375,7 +507,10 @@ class AdsWorkbench(QWidget):
         self._panel_alignment = alignment
         self._build_regions(alignment)
         if hasattr(self, "_align_button"):
-            self._align_button.setText(alignment.value.capitalize())
+            self._align_button.setIcon(QIconifyIcon(_ALIGN_ICONS[alignment]))
+            self._align_button.setToolTip(
+                f"Panel Alignment: {alignment.value.capitalize()}"
+            )
 
     def cyclePanelAlignment(self) -> None:
         cur = self._panel_alignment
@@ -388,65 +523,110 @@ class AdsWorkbench(QWidget):
 
     def _create_toggle_bar(self) -> QWidget:
         bar = QWidget()
-        layout = QHBoxLayout(bar)
-        layout.setContentsMargins(4, 2, 4, 2)
-        layout.setSpacing(4)
+        outer = QHBoxLayout(bar)
+        outer.setContentsMargins(4, 2, 4, 2)
+        outer.setSpacing(0)
+        outer.addStretch()
+
+        # All buttons together in one group on the right
+        group = QHBoxLayout()
+        group.setSpacing(0)
 
         self._align_button = QToolButton()
-        self._align_button.setText(self._panel_alignment.value.capitalize())
-        self._align_button.setToolTip("Cycle Panel Alignment")
+        self._align_button.setIcon(QIconifyIcon(_ALIGN_ICONS[self._panel_alignment]))
+        self._align_button.setToolTip(
+            f"Panel Alignment: {self._panel_alignment.value.capitalize()}"
+        )
+        self._align_button.setAutoRaise(True)
         self._align_button.clicked.connect(self.cyclePanelAlignment)
-        layout.addWidget(self._align_button)
-
-        layout.addStretch()
+        group.addWidget(self._align_button)
 
         for key in _PERIPHERALS:
+            on_key, off_key = _TOGGLE_ICONS[key]
             btn = QToolButton()
-            btn.setText(key.capitalize())
-            btn.setCheckable(True)
-            btn.setChecked(True)
-            btn.setToolTip(f"Toggle {key}")
-            btn.toggled.connect(lambda checked, k=key: self._on_toggle(k, checked))
+            btn.setIcon(QIconifyIcon(on_key))
+            btn.setAutoRaise(True)
+            btn.setToolTip(f"Toggle {key.capitalize()}")
+            btn.setProperty("iconOn", on_key)
+            btn.setProperty("iconOff", off_key)
+            btn.clicked.connect(lambda _, k=key: self._on_toggle_clicked(k))
             self._toggle_buttons[key] = btn
-            layout.addWidget(btn)
+            group.addWidget(btn)
 
+        outer.addLayout(group)
         return bar
 
-    def _on_toggle(self, region: str, show: bool) -> None:
-        area = self._areas.get(region)
-        try:
-            widgets = area.dockWidgets() if area is not None else []
-        except RuntimeError:
-            widgets = []  # C++ object deleted
+    def _on_toggle_clicked(self, region: str) -> None:
+        """Toggle a region between collapsed and restored."""
+        show = self._collapsed.get(region, False)  # if collapsed, show it
+        self._collapsed[region] = not show
 
-        if show and not widgets:
-            # Region is empty — rebuild to restore it
-            self._build_regions(self._panel_alignment)
+        area = self._areas.get(region)
+        if area is None:
             return
 
-        for dw in widgets:
-            dw.toggleView(show)
-        self.visibilityChanged.emit()
+        if show:
+            # Restore: show all widgets and set splitter to saved size
+            try:
+                for dw in area.dockWidgets():
+                    dw.toggleView(True)
+            except RuntimeError:
+                return
+            self._restore_region_size(region)
+        else:
+            # Collapse: snap splitter to 0
+            try:
+                splitter = area.parentSplitter()
+                if splitter is not None:
+                    idx = splitter.indexOf(area)
+                    if idx >= 0:
+                        sizes = list(splitter.sizes())
+                        others = [(i, sizes[i]) for i in range(len(sizes)) if i != idx]
+                        if others:
+                            donor = max(others, key=lambda x: x[1])[0]
+                            sizes[donor] += sizes[idx]
+                        sizes[idx] = 0
+                        splitter.setSizes(sizes)
+            except RuntimeError:
+                pass
+        self._sync_button_states()
+
+    def _restore_region_size(self, key: str) -> None:
+        """Set a region's splitter size back to its saved value."""
+        area = self._areas.get(key)
+        min_sz = _MIN_SIDEBAR_WIDTH if key in ("left", "right") else _MIN_PANEL_HEIGHT
+        target = max(self._saved_sizes.get(key, min_sz), min_sz)
+        if area is None:
+            return
+        try:
+            splitter = area.parentSplitter()
+            if splitter is None:
+                return
+            idx = splitter.indexOf(area)
+            if idx < 0:
+                return
+            sizes = list(splitter.sizes())
+            others = [(i, sizes[i]) for i in range(len(sizes)) if i != idx]
+            if not others:
+                return
+            donor = max(others, key=lambda x: x[1])[0]
+            sizes[idx] = target
+            sizes[donor] = max(1, sizes[donor] - target)
+            splitter.setSizes(sizes)
+        except RuntimeError:
+            pass
 
     def _sync_button_states(self) -> None:
         if self._rebuilding:
             return
         for key in _PERIPHERALS:
-            area = self._areas.get(key)
             btn = self._toggle_buttons.get(key)
             if btn is None:
                 continue
-            try:
-                visible = (
-                    area is not None
-                    and area.isVisible()
-                    and area.openDockWidgetsCount() > 0
-                )
-            except RuntimeError:
-                visible = False  # C++ object deleted
-            btn.blockSignals(True)
-            btn.setChecked(visible)
-            btn.blockSignals(False)
+            visible = not self._collapsed.get(key, False)
+            icon_key = btn.property("iconOn" if visible else "iconOff")
+            if icon_key:
+                btn.setIcon(QIconifyIcon(icon_key))
         self.visibilityChanged.emit()
 
     # ------------------------------------------------------------------
