@@ -80,6 +80,20 @@ class AdsAwareQlementineStyle(QlementineStyle):
         super().__init__()
         self.setAutoIconColor(AutoIconColor.ForegroundColor)
 
+    # ---- Metric overrides ----
+
+    # ---- Metric overrides ----
+
+    def pixelMetric(
+        self,
+        m: QStyle.PixelMetric,
+        opt: QStyleOption | None = None,
+        widget: QWidget | None = None,
+    ) -> int:
+        if m == QStyle.PixelMetric.PM_SplitterWidth:
+            return 3
+        return super().pixelMetric(m, opt, widget)
+
     # ---- Drawing overrides ----
 
     def drawControl(
@@ -89,6 +103,22 @@ class AdsAwareQlementineStyle(QlementineStyle):
         painter: QPainter | None,
         w: QWidget | None = None,
     ) -> None:
+        if element == QStyle.ControlElement.CE_Splitter and option and painter:
+            # Qlementine clamps splitter thickness to 2px max,
+            # so we paint it ourselves to allow a thicker hover highlight.
+            mouse = _mouse_state(option)
+            color = self.splitterColor(mouse)
+            r = option.rect
+            if not (option.state & QStyle.StateFlag.State_MouseOver):
+                if r.width() < r.height():  # vertical splitter
+                    center = r.center().x()
+                    r = r.adjusted(center - r.left(), 0, center - r.right(), 0)
+                else:  # horizontal splitter
+                    center = r.center().y()
+                    r = r.adjusted(0, center - r.top(), 0, center - r.bottom())
+            painter.fillRect(r, color)
+            return
+
         if element == QStyle.ControlElement.CE_ShapedFrame and w and option and painter:
             active = w.property(ADS_ACTIVE_TAB)
             if active is not None:

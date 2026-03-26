@@ -119,6 +119,7 @@ class AdsWorkbench(QWidget):
         layout.setSpacing(0)
 
         self._dock_manager = CDockManager(self)
+        self._dock_manager.setStyleSheet("")
         layout.addWidget(self._dock_manager, 1)
 
         # Hidden anchors: keep each region alive even when all user
@@ -714,9 +715,6 @@ if __name__ == "__main__":
 
     _add_test_widgets(w)
     w.buildInitialLayout()
-
-    # Clear QtAds default stylesheet so Qlementine paints everything
-    w._dock_manager.setStyleSheet("")
 
     w.show()
     sys.exit(app.exec())
