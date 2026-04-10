@@ -51,8 +51,8 @@ def h_activity_bar(qtbot: QtBot) -> ActivityBar:
 def container(qtbot: QtBot) -> PaneContainer:
     c = PaneContainer()
     qtbot.addWidget(c)
-    c.addPanel("alpha", "Alpha", _label())
-    c.addPanel("beta", "Beta", _label())
+    c.addView("alpha", "Alpha", _label())
+    c.addView("beta", "Beta", _label())
     return c
 
 
@@ -80,12 +80,12 @@ def _label() -> QLabel:
 def _make_workbench() -> WorkbenchWidget:
     """Create a WorkbenchWidget with minimal content for testing."""
     w = WorkbenchWidget()
-    w.addView("explorer", "Explorer", _label(), L.LEFT_SIDEBAR)
-    w.leftSidebar.activityBar.setActive("explorer")
-    w.addView("properties", "Properties", _label(), L.RIGHT_SIDEBAR)
-    w.rightSidebar.activityBar.setActive("properties")
-    w.addView("terminal", "Terminal", _label(), L.PANEL)
-    w.bottomPanel.activityBar.setActive("terminal")
+    w.addView("explorer", "Explorer", _label, location=L.LEFT_SIDEBAR)
+    w.setActiveView("explorer")
+    w.addView("properties", "Properties", _label, location=L.RIGHT_SIDEBAR)
+    w.setActiveView("properties")
+    w.addView("terminal", "Terminal", _label, location=L.PANEL)
+    w.setActiveView("terminal")
     return w
 
 
@@ -94,8 +94,8 @@ def _make_workbench() -> WorkbenchWidget:
 
 class TestActivityBar:
     def test_add_panel(self, activity_bar: ActivityBar) -> None:
-        btn = activity_bar.addPanel("foo", "Foo")
-        assert "foo" in activity_bar.panelIds
+        btn = activity_bar.addItem("foo", "Foo")
+        assert "foo" in activity_bar.itemIds
         assert btn.toolTip() == "Foo"
         assert btn.text() == "Foo"
 
@@ -104,69 +104,69 @@ class TestActivityBar:
 
     def test_horizontal_orientation(self, h_activity_bar: ActivityBar) -> None:
         assert h_activity_bar.orientation == Qt.Orientation.Horizontal
-        h_activity_bar.addPanel("a", "A")
-        h_activity_bar.addPanel("b", "B")
-        assert len(h_activity_bar.panelIds) == 2
+        h_activity_bar.addItem("a", "A")
+        h_activity_bar.addItem("b", "B")
+        assert len(h_activity_bar.itemIds) == 2
 
     def test_set_active_emits_signal(
         self, activity_bar: ActivityBar, qtbot: QtBot
     ) -> None:
-        activity_bar.addPanel("a", "A")
-        activity_bar.addPanel("b", "B")
+        activity_bar.addItem("a", "A")
+        activity_bar.addItem("b", "B")
 
-        with qtbot.waitSignal(activity_bar.panelToggled) as blocker:
+        with qtbot.waitSignal(activity_bar.itemToggled) as blocker:
             activity_bar.setActive("a")
         assert blocker.args == ["a"]
-        assert activity_bar.activePanel == "a"
+        assert activity_bar.activeItem == "a"
 
     def test_toggle_deactivates_when_collapsible(
         self, activity_bar: ActivityBar, qtbot: QtBot
     ) -> None:
-        activity_bar.addPanel("x", "X")
+        activity_bar.addItem("x", "X")
         activity_bar.setActive("x")
-        assert activity_bar.activePanel == "x"
+        assert activity_bar.activeItem == "x"
 
-        with qtbot.waitSignal(activity_bar.panelToggled) as blocker:
+        with qtbot.waitSignal(activity_bar.itemToggled) as blocker:
             activity_bar.setActive("x")  # toggle off
         assert blocker.args == [""]
-        assert activity_bar.activePanel is None
+        assert activity_bar.activeItem is None
 
     def test_toggle_blocked_when_not_collapsible(
         self, activity_bar: ActivityBar
     ) -> None:
-        activity_bar.addPanel("x", "X")
+        activity_bar.addItem("x", "X")
         activity_bar.collapsible = False
         activity_bar.setActive("x")
 
         activity_bar.setActive("x")  # should NOT toggle off
-        assert activity_bar.activePanel == "x"
+        assert activity_bar.activeItem == "x"
 
     def test_deselect(self, activity_bar: ActivityBar) -> None:
-        activity_bar.addPanel("a", "A")
+        activity_bar.addItem("a", "A")
         activity_bar.setActive("a")
-        assert activity_bar.activePanel == "a"
+        assert activity_bar.activeItem == "a"
 
         activity_bar.deselect()
-        assert activity_bar.activePanel is None
+        assert activity_bar.activeItem is None
 
     def test_activate_first(self, activity_bar: ActivityBar, qtbot: QtBot) -> None:
-        activity_bar.addPanel("first", "First")
-        activity_bar.addPanel("second", "Second")
+        activity_bar.addItem("first", "First")
+        activity_bar.addItem("second", "Second")
 
-        with qtbot.waitSignal(activity_bar.panelToggled) as blocker:
+        with qtbot.waitSignal(activity_bar.itemToggled) as blocker:
             activity_bar.activateFirst()
         assert blocker.args == ["first"]
-        assert activity_bar.activePanel == "first"
+        assert activity_bar.activeItem == "first"
 
     def test_switching_panels(self, activity_bar: ActivityBar, qtbot: QtBot) -> None:
-        activity_bar.addPanel("a", "A")
-        activity_bar.addPanel("b", "B")
+        activity_bar.addItem("a", "A")
+        activity_bar.addItem("b", "B")
         activity_bar.setActive("a")
 
-        with qtbot.waitSignal(activity_bar.panelToggled) as blocker:
+        with qtbot.waitSignal(activity_bar.itemToggled) as blocker:
             activity_bar.setActive("b")
         assert blocker.args == ["b"]
-        assert activity_bar.activePanel == "b"
+        assert activity_bar.activeItem == "b"
 
 
 # ---- PaneContainer tests -------------------------------------------------
@@ -175,28 +175,28 @@ class TestActivityBar:
 class TestPaneContainer:
     def test_add_panel_adds_to_stack(self, container: PaneContainer) -> None:
         assert container.stack.count() == 2
-        assert "alpha" in container.activityBar.panelIds
-        assert "beta" in container.activityBar.panelIds
+        assert "alpha" in container.activityBar.itemIds
+        assert "beta" in container.activityBar.itemIds
 
     def test_panel_toggled_forwarded(
         self, container: PaneContainer, qtbot: QtBot
     ) -> None:
-        with qtbot.waitSignal(container.panelToggled) as blocker:
+        with qtbot.waitSignal(container.viewToggled) as blocker:
             container.activityBar.setActive("alpha")
         assert blocker.args == ["alpha"]
 
     def test_toggle_collapse_and_restore(self, container: PaneContainer) -> None:
         container.activityBar.setActive("alpha")
-        assert container.activityBar.activePanel == "alpha"
+        assert container.activityBar.activeItem == "alpha"
 
         container.collapse()
-        assert container.activityBar.activePanel is None
+        assert container.activityBar.activeItem is None
 
     def test_toggle_method(self, container: PaneContainer) -> None:
         container.activityBar.setActive("alpha")
         container.splitterWidget.show()
         container.toggle()  # should collapse
-        assert container.activityBar.activePanel is None
+        assert container.activityBar.activeItem is None
 
     def test_ab_position_default(self, container: PaneContainer) -> None:
         assert container.resolvedAbPosition == "side"
@@ -224,10 +224,10 @@ class TestPaneContainer:
 
     def test_restore_from_drag(self, container: PaneContainer) -> None:
         container.deselect()
-        assert container.activityBar.activePanel is None
+        assert container.activityBar.activeItem is None
 
         container.restoreFromDrag()
-        assert container.activityBar.activePanel == "alpha"
+        assert container.activityBar.activeItem == "alpha"
 
     def test_arrange_side(self, container: PaneContainer) -> None:
         container.setAbPosition(ActivityBarPosition.DEFAULT)
@@ -246,11 +246,11 @@ class TestPaneContainer:
 
         c = PaneContainer(default_ab_position="top")
         qtbot.addWidget(c)
-        c.addPanel("a", "A", _label())
-        c.addPanel("b", "B", _label())
+        c.addView("a", "A", _label())
+        c.addView("b", "B", _label())
         # top position → horizontal → NavigationBarAdapter
         assert isinstance(c.activityBar, NavigationBarAdapter)
-        assert len(c.activityBar.panelIds) == 2
+        assert len(c.activityBar.itemIds) == 2
 
     def test_side_position_uses_activity_bar(self, container: PaneContainer) -> None:
         # Default is "side" → vertical → ActivityBar
@@ -263,9 +263,9 @@ class TestPaneContainer:
 class TestWorkbenchWidget:
     def test_initial_state(self, workbench: WorkbenchWidget) -> None:
         assert workbench.panelAlignment == PanelAlignment.CENTER
-        assert workbench.leftSidebar.activityBar.activePanel == "explorer"
-        assert workbench.rightSidebar.activityBar.activePanel == "properties"
-        assert workbench.bottomPanel.activityBar.activePanel == "terminal"
+        assert workbench.leftSidebar.activityBar.activeItem == "explorer"
+        assert workbench.rightSidebar.activityBar.activeItem == "properties"
+        assert workbench.bottomPanel.activityBar.activeItem == "terminal"
         assert workbench._root_splitter is not None
 
     @pytest.mark.parametrize("alignment", list(PanelAlignment))
@@ -300,10 +300,10 @@ class TestWorkbenchWidget:
     def test_sidebar_collapse_and_restore(self, workbench: WorkbenchWidget) -> None:
         left = workbench.leftSidebar
         left.collapse()
-        assert left.activityBar.activePanel is None
+        assert left.activityBar.activeItem is None
 
         left.toggle()
-        assert left.activityBar.activePanel is not None
+        assert left.activityBar.activeItem is not None
 
     def test_alignment_switch_preserves_leaf_widgets(
         self, workbench: WorkbenchWidget
@@ -339,12 +339,12 @@ class TestWorkbenchWidget:
     def test_add_view_routes_to_correct_container(self, qtbot: QtBot) -> None:
         w = WorkbenchWidget()
         qtbot.addWidget(w)
-        w.addView("a", "A", _label(), L.LEFT_SIDEBAR)
-        w.addView("b", "B", _label(), L.RIGHT_SIDEBAR)
-        w.addView("c", "C", _label(), L.PANEL)
-        assert "a" in w.leftSidebar.activityBar.panelIds
-        assert "b" in w.rightSidebar.activityBar.panelIds
-        assert "c" in w.bottomPanel.activityBar.panelIds
+        w.addView("a", "A", _label, location=L.LEFT_SIDEBAR)
+        w.addView("b", "B", _label, location=L.RIGHT_SIDEBAR)
+        w.addView("c", "C", _label, location=L.PANEL)
+        assert "a" in w.leftSidebar.activityBar.itemIds
+        assert "b" in w.rightSidebar.activityBar.itemIds
+        assert "c" in w.bottomPanel.activityBar.itemIds
 
     def test_bottom_panel_uses_navigation_bar(self, workbench: WorkbenchWidget) -> None:
         from pymmcore_gui._layout import NavigationBarAdapter
@@ -402,10 +402,10 @@ class TestMicroManagerGUI:
         assert not wb.leftSidebar.isCollapsed
 
         wb.toggleLeftSidebar()
-        assert wb.leftSidebar.activityBar.activePanel is None
+        assert wb.leftSidebar.activityBar.activeItem is None
 
         wb.toggleLeftSidebar()
-        assert wb.leftSidebar.activityBar.activePanel is not None
+        assert wb.leftSidebar.activityBar.activeItem is not None
 
     def test_toggle_right_sidebar(self, gui: MicroManagerGUI) -> None:
         gui.show()
@@ -413,10 +413,10 @@ class TestMicroManagerGUI:
         assert not wb.rightSidebar.isCollapsed
 
         wb.toggleRightSidebar()
-        assert wb.rightSidebar.activityBar.activePanel is None
+        assert wb.rightSidebar.activityBar.activeItem is None
 
         wb.toggleRightSidebar()
-        assert wb.rightSidebar.activityBar.activePanel is not None
+        assert wb.rightSidebar.activityBar.activeItem is not None
 
     def test_toggle_panel(self, gui: MicroManagerGUI) -> None:
         gui.show()
@@ -477,7 +477,7 @@ def test_switching_views_in_panel_does_not_resize(
     wb = shown_workbench
 
     # Add a second view to the panel
-    wb.addView("console", "Console", _label(), L.PANEL)
+    wb.addView("console", "Console", _label, location=L.PANEL)
 
     panel_w = wb.bottomPanel.splitterWidget
     h0 = splitter_size(panel_w)
@@ -627,7 +627,7 @@ def test_rapid_alignment_cycling_with_collapses(
     assert wb.rightSidebar.isCollapsed
     assert not wb.isPanelVisible
     assert not wb.leftSidebar.isCollapsed
-    assert wb.leftSidebar.activityBar.activePanel is not None
+    assert wb.leftSidebar.activityBar.activeItem is not None
 
 
 def test_collapse_all_then_change_alignment(
@@ -671,7 +671,7 @@ def test_drag_restore_does_not_disturb_other_sidebar(
     parent.setSizes(sizes)
     wb._on_splitter_moved()
 
-    assert wb.rightSidebar.activityBar.activePanel is None
+    assert wb.rightSidebar.activityBar.activeItem is None
 
     # Simulate drag back
     sizes = parent.sizes()

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from pymmcore_gui._qt.QtCore import Qt, Signal
 from pymmcore_gui._qt.QtGui import QAction, QIcon, QPalette
 from pymmcore_gui._qt.QtWidgets import (
@@ -19,6 +21,11 @@ from ._splitter_utils import (
     MIN_PANEL_HEIGHT,
     splitter_size,
 )
+from ._view_descriptor import ViewDescriptor
+from ._view_registry import ViewRegistry
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 class WorkbenchWidget(QWidget):
@@ -30,12 +37,24 @@ class WorkbenchWidget(QWidget):
         self,
         central: QWidget | None = None,
         *,
+        registry: ViewRegistry | None = None,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
         self._panel_alignment = PanelAlignment.CENTER
         self._root_splitter: QSplitter | None = None
         self._rebuilding = False
+
+        # The registry is the source of truth for what views exist,
+        # where they currently live, and their order within a container.
+        # This widget listens to the registry's signals and mutates the
+        # PaneContainers accordingly — mirroring how VS Code's
+        # ``IViewDescriptorService`` drives ``ViewPaneContainer``s.
+        self._registry = registry if registry is not None else ViewRegistry(self)
+        self._registry.view_registered.connect(self._on_view_registered)
+        self._registry.view_deregistered.connect(self._on_view_deregistered)
+        self._registry.view_moved.connect(self._on_view_moved)
+        self._registry.view_reordered.connect(self._on_view_reordered)
 
         # Saved sizes in pixels (survive alignment rebuilds)
         self._left_px = DEFAULT_SIDEBAR_WIDTH
@@ -97,7 +116,7 @@ class WorkbenchWidget(QWidget):
 
         # ---- wire container signals ----
         for container in self._containers.values():
-            container.panelToggled.connect(self._on_container_toggled)
+            container.viewToggled.connect(self._on_container_view_toggled)
             container.abPositionChanged.connect(self._on_ab_position_changed)
 
         # ---- build initial splitter tree ----
@@ -211,17 +230,118 @@ class WorkbenchWidget(QWidget):
         idx = cycle.index(current) if current in cycle else -1
         self.setPanelAlignment(cycle[(idx + 1) % len(cycle)])
 
+    # ---- view registration (registry-backed) -----------------------------
+
+    @property
+    def registry(self) -> ViewRegistry:
+        """The underlying :class:`ViewRegistry`.
+
+        Exposed so callers can subscribe to ``view_registered`` /
+        ``view_moved`` / ``view_reordered`` signals, drive persistence,
+        or move views programmatically.
+        """
+        return self._registry
+
+    def registerView(self, descriptor: ViewDescriptor) -> None:
+        """Register a view from a :class:`ViewDescriptor`.
+
+        This is the primary declarative entry point. The view is added
+        to the descriptor's ``default_location`` container, its widget
+        is instantiated lazily via ``descriptor.factory`` on first
+        show, and all subsequent moves/reorders go through the registry.
+
+        → VS Code ``IViewsRegistry.registerViews`` equivalent.
+        """
+        self._registry.register_view(descriptor)
+
     def addView(
         self,
         view_id: str,
-        title: str,
-        widget: QWidget,
-        location: ViewContainerLocation = ViewContainerLocation.LEFT_SIDEBAR,
+        name: str,
+        factory: Callable[[], QWidget],
         *,
         icon: QIcon | None = None,
+        location: ViewContainerLocation = ViewContainerLocation.LEFT_SIDEBAR,
+        order: int = 0,
+        can_move: bool = True,
     ) -> None:
-        """Add a view to a container by location."""
-        self._containers[location].addPanel(view_id, title, widget, icon=icon)
+        """Convenience wrapper around :meth:`registerView`.
+
+        Builds a :class:`ViewDescriptor` from positional-ish args and
+        registers it.
+        """
+        self.registerView(
+            ViewDescriptor(
+                id=view_id,
+                name=name,
+                factory=factory,
+                icon=icon,
+                default_location=location,
+                order=order,
+                can_move=can_move,
+            )
+        )
+
+    def deregisterView(self, view_id: str) -> None:
+        """Deregister a view by id."""
+        self._registry.deregister_view(view_id)
+
+    def getViewInstance(self, view_id: str) -> QWidget:
+        """Return the (lazy-instantiated) widget for *view_id*."""
+        return self._registry.get_view_instance(view_id)
+
+    def setActiveView(self, view_id: str) -> None:
+        """Activate *view_id* in whichever container it currently lives."""
+        loc = self._registry.get_view_location(view_id)
+        if loc is None:
+            return
+        self._containers[loc].activityBar.setActive(view_id)
+
+    # ---- registry signal handlers ----------------------------------------
+
+    def _on_view_registered(self, view_id: str) -> None:
+        desc = self._registry.get_view_descriptor(view_id)
+        if desc is None:
+            return
+        loc = self._registry.get_view_location(view_id)
+        if loc is None:
+            return
+        widget = self._registry.get_view_instance(view_id)
+        self._containers[loc].addView(view_id, desc.name, widget, icon=desc.icon)
+
+    def _on_view_deregistered(self, view_id: str) -> None:
+        for container in self._containers.values():
+            if view_id in container.viewIds:
+                container.removeView(view_id)
+                return
+
+    def _on_view_moved(
+        self,
+        view_id: str,
+        from_loc: ViewContainerLocation,
+        to_loc: ViewContainerLocation,
+    ) -> None:
+        src = self._containers[from_loc]
+        dst = self._containers[to_loc]
+        widget = src.removeView(view_id)
+        if widget is None:
+            widget = self._registry.get_view_instance(view_id)
+        desc = self._registry.get_view_descriptor(view_id)
+        if desc is None:
+            return
+        dst.addView(view_id, desc.name, widget, icon=desc.icon)
+
+    def _on_view_reordered(
+        self,
+        view_id: str,
+        location: ViewContainerLocation,
+        new_index: int,
+    ) -> None:
+        # Intra-container reorder — not yet supported by the bar
+        # widgets (qlementine NavigationBar lacks insertItem/moveItem
+        # as of this refactor). Placeholder for the DnD work: callers
+        # can read the new order from the registry when DnD lands.
+        _ = (view_id, location, new_index)
 
     def toggleLeftSidebar(self) -> None:
         self._toggle_container(self._left_sidebar)
@@ -353,10 +473,10 @@ class WorkbenchWidget(QWidget):
             if not w.isVisible():
                 continue
             size = splitter_size(w)
-            if size == 0 and container.activityBar.activePanel is not None:
+            if size == 0 and container.activityBar.activeItem is not None:
                 container.deselect()
                 setattr(self, flag_attr, True)
-            elif size > 0 and container.activityBar.activePanel is None:
+            elif size > 0 and container.activityBar.activeItem is None:
                 container.restoreFromDrag()
                 setattr(self, flag_attr, False)
         self.visibilityChanged.emit()
@@ -435,7 +555,7 @@ class WorkbenchWidget(QWidget):
     def _toggle_container(self, container: PaneContainer) -> None:
         """Toggle a container, transferring space to/from the editor."""
         if container.isCollapsed:
-            active = container.activityBar.activePanel
+            active = container.activityBar.activeItem
             if active:
                 self._restore_container(container, active)
             else:
@@ -467,13 +587,13 @@ class WorkbenchWidget(QWidget):
         else:
             self._panel_collapsed = True
 
-    def _restore_container(self, container: PaneContainer, panel_id: str) -> None:
+    def _restore_container(self, container: PaneContainer, view_id: str) -> None:
         """Restore a container, taking space only from the editor."""
-        if panel_id in container._panels:
-            container.stack.setCurrentWidget(container._panels[panel_id])
+        if view_id in container._views:
+            container.stack.setCurrentWidget(container._views[view_id].widget)
         widget = container.splitterWidget
         widget.show()
-        container.activityBar.setActiveSilent(panel_id)
+        container.activityBar.setActiveSilent(view_id)
 
         parent = widget.parentWidget()
         if not isinstance(parent, QSplitter):
@@ -508,14 +628,14 @@ class WorkbenchWidget(QWidget):
                 return i
         return -1
 
-    def _on_container_toggled(self, panel_id: str) -> None:
+    def _on_container_view_toggled(self, view_id: str) -> None:
         container: PaneContainer = self.sender()  # type: ignore[assignment,unused-ignore]
-        if panel_id:
+        if view_id:
             if container.isCollapsed:
-                self._restore_container(container, panel_id)
-            elif panel_id in container._panels:
+                self._restore_container(container, view_id)
+            elif view_id in container._views:
                 # Already visible — just switch the view, don't resize
-                container.stack.setCurrentWidget(container._panels[panel_id])
+                container.stack.setCurrentWidget(container._views[view_id].widget)
         else:
             self._collapse_container(container)
         self.visibilityChanged.emit()

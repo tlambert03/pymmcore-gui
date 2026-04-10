@@ -17,7 +17,12 @@ from pymmcore_gui._qt.QtWidgets import (
     QWidget,
 )
 
-from ._layout import PanelAlignment, ViewContainerLocation, WorkbenchWidget
+from ._layout import (
+    PanelAlignment,
+    ViewContainerLocation,
+    ViewDescriptor,
+    WorkbenchWidget,
+)
 from ._main_window import ICON
 from .widgets._configure_widget import ConfigureModeWidget
 
@@ -44,6 +49,43 @@ def _make_label(text: str) -> QLabel:
     return lbl
 
 
+# ---- View descriptors -----------------------------------------------------
+#
+# Declared at module level so that the set of views is static data rather
+# than imperative setup inside ``__init__``. Mirrors VS Code's pattern of
+# registering views at module import via ``contribution`` files.
+
+_PLACEHOLDER_VIEWS: tuple[ViewDescriptor, ...] = (
+    ViewDescriptor(
+        id="explorer",
+        name="Explorer",
+        factory=lambda: _make_label("Explorer"),
+        icon=QIconifyIcon("codicon:files"),
+        default_location=ViewContainerLocation.LEFT_SIDEBAR,
+    ),
+    ViewDescriptor(
+        id="properties",
+        name="Properties",
+        factory=lambda: _make_label("Properties"),
+        default_location=ViewContainerLocation.RIGHT_SIDEBAR,
+    ),
+    ViewDescriptor(
+        id="terminal",
+        name="Terminal",
+        factory=lambda: _make_label("Terminal"),
+        default_location=ViewContainerLocation.PANEL,
+    ),
+    ViewDescriptor(
+        id="console",
+        name="Console",
+        factory=lambda: _make_label("Console"),
+        default_location=ViewContainerLocation.PANEL,
+    ),
+)
+
+_INITIAL_ACTIVE_VIEWS: tuple[str, ...] = ("explorer", "properties", "terminal")
+
+
 # ---- Main Window ----------------------------------------------------------
 
 
@@ -60,37 +102,12 @@ class MicroManagerGUI(QMainWindow):
         self._configure_mode = ConfigureModeWidget(self)
         self._acquire_mode = WorkbenchWidget(central=_make_label("Editor Area"))
 
-        # Populate workbench with placeholder content
+        # Register placeholder views from the module-level descriptor list.
         wb = self._acquire_mode
-        L = ViewContainerLocation
-        wb.addView(
-            "explorer",
-            "Explorer",
-            _make_label("Primary Side Bar"),
-            L.LEFT_SIDEBAR,
-            icon=QIconifyIcon("codicon:files"),
-        )
-        wb.leftSidebar.activityBar.setActive("explorer")
-        wb.addView(
-            "properties",
-            "Properties",
-            _make_label("Secondary Side Bar"),
-            L.RIGHT_SIDEBAR,
-        )
-        wb.rightSidebar.activityBar.setActive("properties")
-        wb.addView(
-            "terminal",
-            "Terminal",
-            _make_label("Panel"),
-            L.PANEL,
-        )
-        wb.addView(
-            "console",
-            "Console",
-            _make_label("Panel"),
-            L.PANEL,
-        )
-        wb.bottomPanel.activityBar.setActive("terminal")
+        for desc in _PLACEHOLDER_VIEWS:
+            wb.registerView(desc)
+        for view_id in _INITIAL_ACTIVE_VIEWS:
+            wb.setActiveView(view_id)
 
         # ---- set icons on workbench actions ----
         wb.setActionIcons(

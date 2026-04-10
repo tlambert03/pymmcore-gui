@@ -15,14 +15,14 @@ if TYPE_CHECKING:
 class NavigationBarAdapter(QWidget):
     """Wraps Qlementine's NavigationBar with the same interface as ActivityBar."""
 
-    panelToggled = Signal(str)  # panel_id or "" to collapse
+    itemToggled = Signal(str)  # item_id, or "" to collapse
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._nav = NavigationBar(self)  # pyright: ignore[reportCallIssue]
         self._nav.setFixedHeight(32)
         self._nav.setItemsShouldExpand(False)
-        self._panel_ids: list[str] = []
+        self._item_ids: list[str] = []
         self._active: str | None = None
         self._collapsible = True
 
@@ -43,7 +43,7 @@ class NavigationBarAdapter(QWidget):
     # ---- public API (matches ActivityBar) ---------------------------------
 
     @property
-    def activePanel(self) -> str | None:
+    def activeItem(self) -> str | None:
         return self._active
 
     @property
@@ -55,48 +55,58 @@ class NavigationBarAdapter(QWidget):
         self._collapsible = value
 
     @property
-    def panelIds(self) -> list[str]:
-        return list(self._panel_ids)
+    def itemIds(self) -> list[str]:
+        return list(self._item_ids)
 
-    def addPanel(self, panel_id: str, text: str, *, icon: QIcon | None = None) -> None:
+    def addItem(self, item_id: str, text: str, *, icon: QIcon | None = None) -> None:
         if icon:
             self._nav.addItem(text, icon)
         else:
             self._nav.addItem(text)
-        self._panel_ids.append(panel_id)
+        self._item_ids.append(item_id)
 
-    def setActive(self, panel_id: str | None) -> None:
-        """Programmatically activate (or deactivate) a panel."""
-        if panel_id and panel_id in self._panel_ids:
-            if self._active == panel_id and self._collapsible:
+    def removeItem(self, item_id: str) -> None:
+        """Remove an item from the bar. No-op if not present."""
+        if item_id not in self._item_ids:
+            return
+        idx = self._item_ids.index(item_id)
+        self._nav.removeItem(idx)
+        self._item_ids.pop(idx)
+        if self._active == item_id:
+            self._active = None
+
+    def setActive(self, item_id: str | None) -> None:
+        """Programmatically activate (or deactivate) an item."""
+        if item_id and item_id in self._item_ids:
+            if self._active == item_id and self._collapsible:
                 # Toggle off
                 self.deselect()
-                self.panelToggled.emit("")
-            elif self._active != panel_id:
-                self.setActiveSilent(panel_id)
-                self.panelToggled.emit(panel_id)
-        elif not panel_id and self._active and self._collapsible:
+                self.itemToggled.emit("")
+            elif self._active != item_id:
+                self.setActiveSilent(item_id)
+                self.itemToggled.emit(item_id)
+        elif not item_id and self._active and self._collapsible:
             self.deselect()
-            self.panelToggled.emit("")
+            self.itemToggled.emit("")
 
     def deselect(self) -> None:
-        """Uncheck the active item without emitting panelToggled."""
+        """Uncheck the active item without emitting itemToggled."""
         self._active = None
         self._nav.blockSignals(True)
         self._nav.setCurrentIndex(-1)
         self._nav.blockSignals(False)
 
     def activateFirst(self) -> None:
-        """Activate the first panel if any exist."""
-        if self._panel_ids:
-            self.setActiveSilent(self._panel_ids[0])
-            self.panelToggled.emit(self._panel_ids[0])
+        """Activate the first item if any exist."""
+        if self._item_ids:
+            self.setActiveSilent(self._item_ids[0])
+            self.itemToggled.emit(self._item_ids[0])
 
-    def setActiveSilent(self, panel_id: str) -> None:
-        """Update selection without emitting panelToggled."""
-        if panel_id in self._panel_ids:
-            self._active = panel_id
-            idx = self._panel_ids.index(panel_id)
+    def setActiveSilent(self, item_id: str) -> None:
+        """Update selection without emitting itemToggled."""
+        if item_id in self._item_ids:
+            self._active = item_id
+            idx = self._item_ids.index(item_id)
             self._nav.blockSignals(True)
             self._nav.setCurrentIndex(idx)
             self._nav.blockSignals(False)
@@ -105,7 +115,7 @@ class NavigationBarAdapter(QWidget):
 
     def _on_index_changed(self) -> None:
         index = self._nav.currentIndex()
-        if 0 <= index < len(self._panel_ids):
-            panel_id = self._panel_ids[index]
-            self._active = panel_id
-            self.panelToggled.emit(panel_id)
+        if 0 <= index < len(self._item_ids):
+            item_id = self._item_ids[index]
+            self._active = item_id
+            self.itemToggled.emit(item_id)

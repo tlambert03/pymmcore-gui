@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 from pymmcore_gui._qt.QtCore import QPoint, Qt, Signal
 from pymmcore_gui._qt.QtGui import QAction, QActionGroup, QIcon
 from pymmcore_gui._qt.QtWidgets import (
@@ -21,10 +23,34 @@ from ._splitter_utils import (
 )
 
 
-class PaneContainer(QWidget):
-    """Unified container: ActivityBar + QStackedWidget."""
+@dataclass
+class _ViewEntry:
+    """Cached per-view data a container needs to re-render bar items.
 
-    panelToggled = Signal(str)  # forwarded from activityBar
+    Held by the container so that :meth:`PaneContainer._ensure_correct_bar_type`
+    can reconstruct bar items on orientation swap without reaching into the
+    old bar's internals for title/icon.
+    """
+
+    widget: QWidget
+    title: str
+    icon: QIcon | None
+
+
+class PaneContainer(QWidget):
+    """One workbench region: activity bar + stacked view widgets.
+
+    In VS Code terms this plays the role of a ``ViewContainer`` (or more
+    precisely a ``ViewContainer`` backed by a ``ViewPaneContainer`` with
+    ``mergeViewWithContainerWhenSingleView: true``) — a container that
+    holds one or more views and shows them one at a time via a tab strip.
+
+    The container is deliberately *dumb*: it doesn't know about
+    :class:`ViewRegistry`. The caller passes widgets in and the container
+    just draws them. The registry/workbench is the mediator.
+    """
+
+    viewToggled = Signal(str)  # forwarded from activityBar
     abPositionChanged = Signal(ActivityBarPosition)
 
     def __init__(
@@ -39,7 +65,7 @@ class PaneContainer(QWidget):
             QSizePolicy.Policy.Expanding,
             QSizePolicy.Policy.Expanding,
         )
-        self._panels: dict[str, QWidget] = {}
+        self._views: dict[str, _ViewEntry] = {}
         self._default_ab_position = default_ab_position
         self._ab_position = ActivityBarPosition.DEFAULT
 
@@ -69,6 +95,11 @@ class PaneContainer(QWidget):
     @property
     def stack(self) -> QStackedWidget:
         return self._stack
+
+    @property
+    def viewIds(self) -> list[str]:
+        """View ids in display order."""
+        return list(self._views)
 
     @property
     def resolvedAbPosition(self) -> str:
@@ -121,31 +152,57 @@ class PaneContainer(QWidget):
         else:  # hidden
             self._activity_bar.hide()
 
-    def addPanel(
+    def addView(
         self,
-        panel_id: str,
+        view_id: str,
         title: str,
         widget: QWidget,
         *,
         icon: QIcon | None = None,
     ) -> None:
-        self._activity_bar.addPanel(panel_id, title, icon=icon)
-        self._stack.addWidget(widget)
-        self._panels[panel_id] = widget
+        """Add a view to this container.
 
-    def activate(self, panel_id: str) -> None:
-        """Show a specific panel by id."""
-        if panel_id not in self._panels:
+        Called by :class:`WorkbenchWidget` in response to
+        :attr:`ViewRegistry.view_registered` (and, for cross-container
+        moves, :attr:`ViewRegistry.view_moved`). The ``widget`` is the
+        lazily-instantiated view pane from the registry; this container
+        does not own its lifetime beyond reparenting.
+        """
+        if view_id in self._views:
+            raise ValueError(f"View {view_id!r} already in this container")
+        self._activity_bar.addItem(view_id, title, icon=icon)
+        self._stack.addWidget(widget)
+        self._views[view_id] = _ViewEntry(widget=widget, title=title, icon=icon)
+
+    def removeView(self, view_id: str) -> QWidget | None:
+        """Remove and return the widget for *view_id*.
+
+        The widget is detached from this container's stack but *not*
+        deleted — it can be re-added to another container (the DnD
+        cross-container move path). Returns ``None`` if unknown.
+        """
+        entry = self._views.pop(view_id, None)
+        if entry is None:
+            return None
+        self._stack.removeWidget(entry.widget)
+        entry.widget.setParent(None)
+        self._activity_bar.removeItem(view_id)
+        return entry.widget
+
+    def activate(self, view_id: str) -> None:
+        """Show a specific view by id."""
+        entry = self._views.get(view_id)
+        if entry is None:
             return
-        self._stack.setCurrentWidget(self._panels[panel_id])
+        self._stack.setCurrentWidget(entry.widget)
         widget = self.splitterWidget
         widget.show()
         ensure_splitter_size(widget, DEFAULT_SIDEBAR_WIDTH)
 
     def toggle(self) -> None:
-        """Toggle visibility. Show first/active panel, or collapse."""
+        """Toggle visibility. Show first/active view, or collapse."""
         if self.isCollapsed:
-            active = self._activity_bar.activePanel
+            active = self._activity_bar.activeItem
             if active:
                 self.activate(active)
             else:
@@ -158,11 +215,11 @@ class PaneContainer(QWidget):
         self._activity_bar.deselect()
 
     def restoreFromDrag(self) -> None:
-        """Re-activate the first panel after being dragged from zero."""
-        first = next(iter(self._panels), None)
+        """Re-activate the first view after being dragged from zero."""
+        first = next(iter(self._views), None)
         if first:
             self._activity_bar.setActiveSilent(first)
-            self._stack.setCurrentWidget(self._panels[first])
+            self._stack.setCurrentWidget(self._views[first].widget)
 
     def collapse(self) -> None:
         """Fully hide the container."""
@@ -184,7 +241,7 @@ class PaneContainer(QWidget):
         return ActivityBar(parent=self)
 
     def _wire_bar(self) -> None:
-        self._activity_bar.panelToggled.connect(self.panelToggled)
+        self._activity_bar.itemToggled.connect(self.viewToggled)
         self._activity_bar.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self._activity_bar.customContextMenuRequested.connect(self._show_context_menu)
 
@@ -194,32 +251,18 @@ class PaneContainer(QWidget):
         if need_h == self._is_horizontal():
             return
 
-        # Save state from old bar
-        active = self._activity_bar.activePanel
-        panel_ids_and_titles: list[tuple[str, str, QIcon | None]] = []
-        for pid in self._activity_bar.panelIds:
-            # Recover title from tooltip (ActivityBar) or nav item text
-            if isinstance(self._activity_bar, ActivityBar):
-                btn = self._activity_bar._buttons[pid]
-                title = btn.toolTip()
-                icon = btn.icon() if not btn.icon().isNull() else None
-            else:
-                idx = self._activity_bar._panel_ids.index(pid)
-                title = self._activity_bar._nav.getItemText(idx)
-                icon = self._activity_bar._nav.getItemIcon(idx)
-                if icon and icon.isNull():
-                    icon = None
-            panel_ids_and_titles.append((pid, title, icon))
+        # Save active state from old bar
+        active = self._activity_bar.activeItem
 
         # Destroy old bar
         self._activity_bar.setParent(None)
         self._activity_bar.deleteLater()
 
-        # Create new bar and re-add panels
+        # Create new bar and re-add items from cached view entries
         self._activity_bar = self._make_bar()
         self._wire_bar()
-        for pid, title, icon in panel_ids_and_titles:
-            self._activity_bar.addPanel(pid, title, icon=icon)
+        for view_id, entry in self._views.items():
+            self._activity_bar.addItem(view_id, entry.title, icon=entry.icon)
 
         # Restore active state
         if active:
