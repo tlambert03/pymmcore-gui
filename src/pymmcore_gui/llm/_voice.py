@@ -72,7 +72,7 @@ def _get_vad_model() -> Any:
     if _vad_model is None:
         import torch
 
-        model, _utils = torch.hub.load(  # pyright: ignore[reportGeneralTypeIssues]
+        model, _utils = torch.hub.load(  # pyright: ignore
             "snakers4/silero-vad",
             "silero_vad",
             trust_repo=True,  # pyright: ignore[reportArgumentType]
@@ -128,7 +128,7 @@ def _record_until_silence() -> np.ndarray:
             audio_f32 = data[:, 0]
             chunks.append(audio_f32.copy())
 
-            tensor = torch.from_numpy(audio_f32)
+            tensor = torch.from_numpy(audio_f32)  # pyright: ignore
             speech_prob = vad_model(tensor, SAMPLE_RATE).item()
 
             if speech_prob > 0.5:

@@ -144,10 +144,20 @@ class ViewRegistry(QObject):
         same location reorders; a move between locations emits
         ``view_moved``, a reorder emits ``view_reordered``.
 
+        Raises :class:`PermissionError` if the descriptor has
+        ``can_move=False``. This enforcement is checked here so every
+        caller (including DnD drop handlers and :meth:`reorder_view`)
+        inherits it automatically.
+
         → VS Code ``moveViewToLocation`` / ``moveViewsToContainer``.
         """
-        if view_id not in self._descriptors:
+        descriptor = self._descriptors.get(view_id)
+        if descriptor is None:
             raise KeyError(f"Unknown view: {view_id!r}")
+        if not descriptor.can_move:
+            raise PermissionError(
+                f"View {view_id!r} is pinned (can_move=False) and cannot be moved"
+            )
         old_loc = self._locations[view_id]
         self._order[old_loc].remove(view_id)
         self._locations[view_id] = location
@@ -234,8 +244,9 @@ class ViewRegistry(QObject):
     # ---- internals --------------------------------------------------------
 
     def _insert_ordered(self, view_id: str, location: ViewContainerLocation) -> None:
-        """Insert *view_id* into ``_order[location]`` respecting
-        descriptor ``order`` fields (stable sort).
+        """Insert *view_id* into ``_order[location]``.
+
+        Respects descriptor ``order`` fields as a stable sort key.
         """
         descriptor = self._descriptors[view_id]
         bucket = self._order[location]

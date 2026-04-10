@@ -159,20 +159,41 @@ class PaneContainer(QWidget):
         widget: QWidget,
         *,
         icon: QIcon | None = None,
+        index: int | None = None,
     ) -> None:
         """Add a view to this container.
 
         Called by :class:`WorkbenchWidget` in response to
         :attr:`ViewRegistry.view_registered` (and, for cross-container
         moves, :attr:`ViewRegistry.view_moved`). The ``widget`` is the
-        lazily-instantiated view pane from the registry; this container
-        does not own its lifetime beyond reparenting.
+        view pane from the registry; this container does not own its
+        lifetime beyond reparenting.
+
+        If *index* is ``None`` the view is appended. Otherwise it is
+        inserted at that position in both the activity bar and the
+        stacked widget, and ``self._views`` is re-keyed to match.
         """
         if view_id in self._views:
             raise ValueError(f"View {view_id!r} already in this container")
-        self._activity_bar.addItem(view_id, title, icon=icon)
-        self._stack.addWidget(widget)
-        self._views[view_id] = _ViewEntry(widget=widget, title=title, icon=icon)
+
+        count = len(self._views)
+        if index is None or index >= count:
+            # Append — simple path.
+            self._activity_bar.addItem(view_id, title, icon=icon)
+            self._stack.addWidget(widget)
+            self._views[view_id] = _ViewEntry(widget=widget, title=title, icon=icon)
+            return
+
+        clamped = max(0, index)
+        self._activity_bar.insertItem(clamped, view_id, title, icon=icon)
+        self._stack.insertWidget(clamped, widget)
+
+        # Rebuild _views with the new entry inserted at `clamped` so
+        # iteration order matches visual order.
+        entry = _ViewEntry(widget=widget, title=title, icon=icon)
+        items = list(self._views.items())
+        items.insert(clamped, (view_id, entry))
+        self._views = dict(items)
 
     def removeView(self, view_id: str) -> QWidget | None:
         """Remove and return the widget for *view_id*.
@@ -188,6 +209,31 @@ class PaneContainer(QWidget):
         entry.widget.setParent(None)
         self._activity_bar.removeItem(view_id)
         return entry.widget
+
+    def reorderView(self, view_id: str, new_index: int) -> None:
+        """Reorder *view_id* to *new_index* within this container."""
+        if view_id not in self._views:
+            return
+        ids = list(self._views)
+        old_index = ids.index(view_id)
+        count = len(ids)
+        new_index = max(0, min(new_index, count - 1))
+        if old_index == new_index:
+            return
+
+        # Reorder the _views dict.
+        items = list(self._views.items())
+        item = items.pop(old_index)
+        items.insert(new_index, item)
+        self._views = dict(items)
+
+        # Reorder the activity bar.
+        self._activity_bar.moveItem(old_index, new_index)
+
+        # Reorder the stack: take the widget out and re-insert.
+        entry = item[1]
+        self._stack.removeWidget(entry.widget)
+        self._stack.insertWidget(new_index, entry.widget)
 
     def activate(self, view_id: str) -> None:
         """Show a specific view by id."""

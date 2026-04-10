@@ -69,6 +69,27 @@ class ActivityBar(QWidget):
     def addItem(
         self, item_id: str, text: str, *, icon: QIcon | None = None
     ) -> QToolButton:
+        """Append an item to the end of the bar."""
+        return self.insertItem(len(self._buttons), item_id, text, icon=icon)
+
+    def insertItem(
+        self,
+        index: int,
+        item_id: str,
+        text: str,
+        *,
+        icon: QIcon | None = None,
+    ) -> QToolButton:
+        """Insert an item at *index*.
+
+        ``index`` is clamped into ``[0, item_count]``. ``index == count``
+        is equivalent to :meth:`addItem`.
+        """
+        if item_id in self._buttons:
+            raise ValueError(f"Item {item_id!r} already exists")
+        count = len(self._buttons)
+        clamped = max(0, min(index, count))
+
         btn = QToolButton()
         btn.setToolTip(text)
         if icon:
@@ -80,8 +101,19 @@ class ActivityBar(QWidget):
         btn.setObjectName(item_id)
         btn.clicked.connect(self._on_clicked)
 
-        self._buttons[item_id] = btn
-        self._layout.insertWidget(self._layout.count() - 1, btn)
+        # QBoxLayout ends in a trailing stretch. Item widgets occupy
+        # layout indices [0, count); the stretch is at `count`.
+        # Insertion at clamped=k places the new widget at layout index k.
+        self._layout.insertWidget(clamped, btn)
+
+        # Maintain _buttons insertion order to match visual order.
+        if clamped == count:
+            self._buttons[item_id] = btn
+        else:
+            # Rebuild dict with btn inserted at the target position.
+            items = list(self._buttons.items())
+            items.insert(clamped, (item_id, btn))
+            self._buttons = dict(items)
         return btn
 
     def removeItem(self, item_id: str) -> None:
@@ -93,6 +125,25 @@ class ActivityBar(QWidget):
         btn.deleteLater()
         if self._active == item_id:
             self._active = None
+
+    def moveItem(self, old_index: int, new_index: int) -> None:
+        """Move the item at *old_index* to *new_index*."""
+        count = len(self._buttons)
+        if not (0 <= old_index < count):
+            raise IndexError(f"old_index out of range: {old_index}")
+        new_index = max(0, min(new_index, count - 1))
+        if old_index == new_index:
+            return
+
+        items = list(self._buttons.items())
+        item = items.pop(old_index)
+        items.insert(new_index, item)
+        self._buttons = dict(items)
+
+        # Re-order the QBoxLayout: take the widget out, insert at new idx.
+        _, btn = item
+        self._layout.removeWidget(btn)
+        self._layout.insertWidget(new_index, btn)
 
     def setActive(self, item_id: str | None) -> None:
         """Programmatically activate (or deactivate) an item."""

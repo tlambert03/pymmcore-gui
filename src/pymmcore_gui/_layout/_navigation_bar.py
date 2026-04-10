@@ -23,6 +23,9 @@ class NavigationBarAdapter(QWidget):
         self._nav.setFixedHeight(32)
         self._nav.setItemsShouldExpand(False)
         self._item_ids: list[str] = []
+        # Cache text + icon per id so we can rebuild the inner qlementine
+        # bar on insert/move — its C++ API currently has no insertItem.
+        self._item_meta: dict[str, tuple[str, QIcon | None]] = {}
         self._active: str | None = None
         self._collapsible = True
 
@@ -59,11 +62,43 @@ class NavigationBarAdapter(QWidget):
         return list(self._item_ids)
 
     def addItem(self, item_id: str, text: str, *, icon: QIcon | None = None) -> None:
-        if icon:
-            self._nav.addItem(text, icon)
-        else:
-            self._nav.addItem(text)
-        self._item_ids.append(item_id)
+        """Append an item to the end of the bar."""
+        self.insertItem(len(self._item_ids), item_id, text, icon=icon)
+
+    def insertItem(
+        self,
+        index: int,
+        item_id: str,
+        text: str,
+        *,
+        icon: QIcon | None = None,
+    ) -> None:
+        """Insert an item at *index*.
+
+        ``index`` is clamped into ``[0, item_count]``. Because qlementine's
+        ``AbstractItemListWidget`` has no native ``insertItem``, inserting
+        anywhere other than the end triggers a full rebuild of the inner
+        ``NavigationBar`` from cached metadata.
+        """
+        if item_id in self._item_ids:
+            raise ValueError(f"Item {item_id!r} already exists")
+        count = len(self._item_ids)
+        clamped = max(0, min(index, count))
+
+        if clamped == count:
+            # Append — no rebuild needed.
+            if icon:
+                self._nav.addItem(text, icon)
+            else:
+                self._nav.addItem(text)
+            self._item_ids.append(item_id)
+            self._item_meta[item_id] = (text, icon)
+            return
+
+        new_ids = list(self._item_ids)
+        new_ids.insert(clamped, item_id)
+        self._item_meta[item_id] = (text, icon)
+        self._rebuild_from_order(new_ids)
 
     def removeItem(self, item_id: str) -> None:
         """Remove an item from the bar. No-op if not present."""
@@ -72,8 +107,53 @@ class NavigationBarAdapter(QWidget):
         idx = self._item_ids.index(item_id)
         self._nav.removeItem(idx)
         self._item_ids.pop(idx)
+        self._item_meta.pop(item_id, None)
         if self._active == item_id:
             self._active = None
+
+    def moveItem(self, old_index: int, new_index: int) -> None:
+        """Move the item at *old_index* to *new_index*."""
+        count = len(self._item_ids)
+        if not (0 <= old_index < count):
+            raise IndexError(f"old_index out of range: {old_index}")
+        new_index = max(0, min(new_index, count - 1))
+        if old_index == new_index:
+            return
+
+        new_ids = list(self._item_ids)
+        item = new_ids.pop(old_index)
+        new_ids.insert(new_index, item)
+        self._rebuild_from_order(new_ids)
+
+    def _rebuild_from_order(self, new_ids: list[str]) -> None:
+        """Tear down and rebuild the inner NavigationBar from *new_ids*.
+
+        Used for insert-at-middle and move operations since qlementine's
+        ``AbstractItemListWidget`` exposes only append + remove. Active
+        selection is preserved by id.
+        """
+        active = self._active
+        self.setUpdatesEnabled(False)
+        self._nav.blockSignals(True)
+        try:
+            while self._nav.itemCount() > 0:
+                self._nav.removeItem(0)
+            self._item_ids = []
+            for iid in new_ids:
+                text, icon = self._item_meta[iid]
+                if icon:
+                    self._nav.addItem(text, icon)
+                else:
+                    self._nav.addItem(text)
+                self._item_ids.append(iid)
+            if active and active in self._item_ids:
+                self._nav.setCurrentIndex(self._item_ids.index(active))
+            else:
+                self._active = None
+                self._nav.setCurrentIndex(-1)
+        finally:
+            self._nav.blockSignals(False)
+            self.setUpdatesEnabled(True)
 
     def setActive(self, item_id: str | None) -> None:
         """Programmatically activate (or deactivate) an item."""

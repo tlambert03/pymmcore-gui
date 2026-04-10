@@ -329,7 +329,22 @@ class WorkbenchWidget(QWidget):
         desc = self._registry.get_view_descriptor(view_id)
         if desc is None:
             return
-        dst.addView(view_id, desc.name, widget, icon=desc.icon)
+        # Insert at the position the registry assigned.
+        # get_views_in_location returns the authoritative order after
+        # the move is committed, so its index for this view id is the
+        # target position within *dst*.
+        target_order = self._registry.get_views_in_location(to_loc)
+        try:
+            target_index: int | None = target_order.index(view_id)
+        except ValueError:
+            target_index = None
+        dst.addView(
+            view_id,
+            desc.name,
+            widget,
+            icon=desc.icon,
+            index=target_index,
+        )
 
     def _on_view_reordered(
         self,
@@ -337,11 +352,7 @@ class WorkbenchWidget(QWidget):
         location: ViewContainerLocation,
         new_index: int,
     ) -> None:
-        # Intra-container reorder — not yet supported by the bar
-        # widgets (qlementine NavigationBar lacks insertItem/moveItem
-        # as of this refactor). Placeholder for the DnD work: callers
-        # can read the new order from the registry when DnD lands.
-        _ = (view_id, location, new_index)
+        self._containers[location].reorderView(view_id, new_index)
 
     def toggleLeftSidebar(self) -> None:
         self._toggle_container(self._left_sidebar)
