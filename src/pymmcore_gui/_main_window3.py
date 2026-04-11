@@ -81,18 +81,21 @@ _PLACEHOLDER_VIEWS: tuple[ViewDescriptor, ...] = (
         id="properties",
         name="Properties",
         factory=lambda: _make_label("Properties"),
+        icon=QIconifyIcon("codicon:settings-gear"),
         default_location=ViewContainerLocation.RIGHT_SIDEBAR,
     ),
     ViewDescriptor(
         id="terminal",
         name="Terminal",
         factory=lambda: _make_label("Terminal"),
+        icon=QIconifyIcon("codicon:terminal"),
         default_location=ViewContainerLocation.PANEL,
     ),
     ViewDescriptor(
         id="console",
         name="Console",
         factory=lambda: _make_label("Console"),
+        icon=QIconifyIcon("codicon:output"),
         default_location=ViewContainerLocation.PANEL,
     ),
 )

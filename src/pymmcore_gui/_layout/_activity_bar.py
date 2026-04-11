@@ -252,6 +252,13 @@ class ActivityBar(QWidget):
                     self._drag_candidate_id = None
                     self._drag_start_pos = None
                     self._start_drag(view_id)
+                    # After ``_start_drag`` (which runs ``QDrag.exec``
+                    # modally and may fire a drop-handler that deletes
+                    # the source button via ``removeItem``), ``obj`` may
+                    # be a dangling C++ wrapper. Return True without
+                    # forwarding to ``super().eventFilter`` — the drag
+                    # fully consumed this event anyway.
+                    return True
         elif etype in (QEvent.Type.MouseButtonRelease, QEvent.Type.Leave):
             # Cancel any pending drag candidate so a stray click past
             # the button doesn't start a drag later.

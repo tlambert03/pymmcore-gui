@@ -58,8 +58,15 @@ class ViewDescriptor(BaseModel):
     don't pay their cost until needed.
     """
 
-    icon: QIconType | None = None
-    """Optional icon shown in the activity bar / nav bar."""
+    icon: QIconType
+    """Icon shown in activity bars and nav bars.
+
+    Required so the view can be rendered uniformly in any container,
+    including the vertical icon-only ActivityBar where there's no
+    horizontal room to fall back to a text label. Dragging a view
+    between containers must not depend on which bar style the target
+    happens to use.
+    """
 
     default_location: ViewContainerLocation = ViewContainerLocation.LEFT_SIDEBAR
     """Container this view belongs to when first registered.

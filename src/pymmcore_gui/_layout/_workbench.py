@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from pymmcore_gui._qt.QtCore import Qt, Signal
+from pymmcore_gui._qt.QtCore import Qt, QTimer, Signal
 from pymmcore_gui._qt.QtGui import QAction, QIcon, QPalette
 from pymmcore_gui._qt.QtWidgets import (
     QHBoxLayout,
@@ -261,7 +261,7 @@ class WorkbenchWidget(QWidget):
         name: str,
         factory: Callable[[], QWidget],
         *,
-        icon: QIcon | None = None,
+        icon: QIcon,
         location: ViewContainerLocation = ViewContainerLocation.LEFT_SIDEBAR,
         order: int = 0,
         can_move: bool = True,
@@ -269,7 +269,9 @@ class WorkbenchWidget(QWidget):
         """Convenience wrapper around :meth:`registerView`.
 
         Builds a :class:`ViewDescriptor` from positional-ish args and
-        registers it.
+        registers it. ``icon`` is required — views without an icon can't
+        render correctly in the vertical icon-only ActivityBar, which
+        means they effectively can't participate in DnD across bars.
         """
         self.registerView(
             ViewDescriptor(
@@ -346,6 +348,11 @@ class WorkbenchWidget(QWidget):
             icon=desc.icon,
             index=target_index,
         )
+        # VS Code parity: auto-activate the moved view in its new
+        # container. Within-container reorders (handled by
+        # ``_on_view_reordered``) leave the active view alone — this
+        # branch only runs for cross-container moves.
+        dst.activityBar.setActive(view_id)
 
     def _on_view_reordered(
         self,
@@ -364,6 +371,13 @@ class WorkbenchWidget(QWidget):
         ``view_moved`` / ``view_reordered`` signals handle the actual
         widget reparenting via the existing handlers.
 
+        The actual registry mutation is deferred via
+        ``QTimer.singleShot(0, ...)`` so it runs *after*
+        ``QDrag.exec`` has fully unwound. Mutating the drag source
+        widget synchronously inside ``dropEvent`` corrupts its state
+        because Qt's drag/drop framework still holds references to
+        the pre-drop layout.
+
         Silently ignores moves the registry refuses (``can_move=False``,
         unknown id) so a bad drag is a no-op rather than a crash.
         """
@@ -375,10 +389,14 @@ class WorkbenchWidget(QWidget):
                 break
         if target_loc is None:
             return
-        try:
-            self._registry.move_view_to_location(view_id, target_loc, index=index)
-        except (KeyError, PermissionError):
-            pass
+
+        def _apply() -> None:
+            try:
+                self._registry.move_view_to_location(view_id, target_loc, index=index)
+            except (KeyError, PermissionError):
+                pass
+
+        QTimer.singleShot(0, _apply)
 
     def toggleLeftSidebar(self) -> None:
         self._toggle_container(self._left_sidebar)

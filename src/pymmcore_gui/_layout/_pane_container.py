@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from pymmcore_gui._qt.QtCore import QPoint, Qt, Signal
 from pymmcore_gui._qt.QtGui import QAction, QActionGroup, QIcon
@@ -13,7 +14,8 @@ from pymmcore_gui._qt.QtWidgets import (
 )
 
 from ._activity_bar import ActivityBar
-from ._enums import ActivityBarPosition
+from ._dnd import decode_view_id
+from ._enums import ActivityBarPosition, NavDisplayMode
 from ._navigation_bar import NavigationBarAdapter
 from ._splitter_utils import (
     DEFAULT_SIDEBAR_WIDTH,
@@ -21,6 +23,47 @@ from ._splitter_utils import (
     ensure_splitter_size,
     splitter_size,
 )
+
+if TYPE_CHECKING:
+    from pymmcore_gui._qt.QtGui import (
+        QDragEnterEvent,
+        QDragMoveEvent,
+        QDropEvent,
+    )
+
+
+class _DroppableStack(QStackedWidget):
+    """QStackedWidget that emits a signal when a view is dropped onto it.
+
+    Used by :class:`PaneContainer` to accept drops on the whole content
+    area, not just the narrow tab bar — drops always append to the end.
+    """
+
+    viewDropped = Signal(str)  # view_id (insertion is always at the end)
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setAcceptDrops(True)
+
+    def dragEnterEvent(self, e: QDragEnterEvent) -> None:
+        if decode_view_id(e.mimeData()) is None:
+            e.ignore()
+            return
+        e.acceptProposedAction()
+
+    def dragMoveEvent(self, e: QDragMoveEvent) -> None:
+        if decode_view_id(e.mimeData()) is None:
+            e.ignore()
+            return
+        e.acceptProposedAction()
+
+    def dropEvent(self, e: QDropEvent) -> None:
+        view_id = decode_view_id(e.mimeData())
+        if view_id is None:
+            e.ignore()
+            return
+        e.acceptProposedAction()
+        self.viewDropped.emit(view_id)
 
 
 @dataclass
@@ -61,14 +104,21 @@ class PaneContainer(QWidget):
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
-        self._stack = QStackedWidget()
+        self._stack = _DroppableStack()
         self._stack.setSizePolicy(
             QSizePolicy.Policy.Expanding,
             QSizePolicy.Policy.Expanding,
         )
+        self._stack.viewDropped.connect(self._on_stack_view_dropped)
         self._views: dict[str, _ViewEntry] = {}
         self._default_ab_position = default_ab_position
         self._ab_position = ActivityBarPosition.DEFAULT
+        # Preferred display mode for the NavigationBarAdapter variant.
+        # Stored at the container level so it survives bar-type swaps
+        # (e.g. side → top → side). Default is ``TEXT_ONLY`` — horizontal
+        # nav bars are typically tab-strip style where labels are the
+        # primary affordance. Users can switch via the right-click menu.
+        self._nav_display_mode: NavDisplayMode = NavDisplayMode.TEXT_ONLY
 
         self._stack.setMinimumWidth(MIN_SIDEBAR_WIDTH)
 
@@ -202,13 +252,29 @@ class PaneContainer(QWidget):
         The widget is detached from this container's stack but *not*
         deleted — it can be re-added to another container (the DnD
         cross-container move path). Returns ``None`` if unknown.
+
+        If the removed view was the currently-shown one and there are
+        other views left, the first remaining view is auto-activated
+        so the container doesn't show a stale "ghost" widget while the
+        activity bar reports no active selection.
         """
         entry = self._views.pop(view_id, None)
         if entry is None:
             return None
+
+        was_current = self._stack.currentWidget() is entry.widget
         self._stack.removeWidget(entry.widget)
         entry.widget.setParent(None)
         self._activity_bar.removeItem(view_id)
+
+        if was_current and self._views:
+            # Auto-activate the first remaining view so bar and stack
+            # stay in sync after the removal.
+            next_id = next(iter(self._views))
+            next_widget = self._views[next_id].widget
+            self._stack.setCurrentWidget(next_widget)
+            self._activity_bar.setActiveSilent(next_id)
+
         return entry.widget
 
     def reorderView(self, view_id: str, new_index: int) -> None:
@@ -290,7 +356,11 @@ class PaneContainer(QWidget):
 
     def _make_bar(self) -> ActivityBar | NavigationBarAdapter:
         if self._needs_horizontal():
-            return NavigationBarAdapter(self)
+            bar = NavigationBarAdapter(self)
+            # Reapply the user's preferred nav display mode so it
+            # survives bar-type swaps (e.g. side → top → side).
+            bar.setDisplayMode(self._nav_display_mode)
+            return bar
         return ActivityBar(parent=self)
 
     def _wire_bar(self) -> None:
@@ -322,6 +392,17 @@ class PaneContainer(QWidget):
         if active:
             self._activity_bar.setActiveSilent(active)
 
+    # ---- drop target on content area --------------------------------------
+
+    def _on_stack_view_dropped(self, view_id: str) -> None:
+        """Handle a drop on the big content area under the tab bar.
+
+        Appends to the end of this container's view list — which is
+        usually what the user means by "put it in this container"
+        when they aren't aiming at a specific position between tabs.
+        """
+        self.viewDropped.emit(view_id, len(self._views))
+
     # ---- context menu -----------------------------------------------------
 
     def _show_context_menu(self, pos: QPoint) -> None:
@@ -346,6 +427,27 @@ class PaneContainer(QWidget):
             group.addAction(action)
             ab_menu.addAction(action)
 
+        # Display mode submenu — only meaningful for the horizontal
+        # NavigationBarAdapter (the vertical ActivityBar is
+        # icons-only by convention).
+        if isinstance(self._activity_bar, NavigationBarAdapter):
+            display_menu = menu.addMenu("Display")
+            display_group = QActionGroup(display_menu)
+            display_group.setExclusive(True)
+            mode_labels = {
+                NavDisplayMode.BOTH: "Icons and Text",
+                NavDisplayMode.ICONS_ONLY: "Icons Only",
+                NavDisplayMode.TEXT_ONLY: "Text Only",
+            }
+            for mode, label in mode_labels.items():
+                action = QAction(label, display_menu)
+                action.setCheckable(True)
+                action.setChecked(self._nav_display_mode == mode)
+                action.setData(mode)
+                action.triggered.connect(self._on_nav_display_mode_action)
+                display_group.addAction(action)
+                display_menu.addAction(action)
+
         return menu
 
     def _on_ab_position_action(self) -> None:
@@ -354,6 +456,13 @@ class PaneContainer(QWidget):
         if pos != self._ab_position:
             self._ab_position = pos
             self.abPositionChanged.emit(pos)
+
+    def _on_nav_display_mode_action(self) -> None:
+        action: QAction = self.sender()  # type: ignore[assignment,unused-ignore]
+        mode: NavDisplayMode = action.data()
+        self._nav_display_mode = mode
+        if isinstance(self._activity_bar, NavigationBarAdapter):
+            self._activity_bar.setDisplayMode(mode)
 
 
 # Backwards-compatible alias
