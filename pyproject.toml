@@ -70,6 +70,7 @@ pymmcore-plus = { git = "https://github.com/pymmcore-plus/pymmcore-plus", rev = 
 ome-writers = { git = "https://github.com/pymmcore-plus/ome-writers", rev = "main" }
 pymmcore-widgets = { git = "https://github.com/pymmcore-plus/pymmcore-widgets", rev = "christina" }
 ndv = { git = "https://github.com/pyapp-kit/ndv", rev = "christina" }
+pyqt6-qlementine = { path = "../PyQlementine/packages/PyQt6-Qlementine" }
 
 
 [project.optional-dependencies]

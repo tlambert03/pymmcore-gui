@@ -64,6 +64,20 @@ _PLACEHOLDER_VIEWS: tuple[ViewDescriptor, ...] = (
         default_location=ViewContainerLocation.LEFT_SIDEBAR,
     ),
     ViewDescriptor(
+        id="search",
+        name="Search",
+        factory=lambda: _make_label("Search"),
+        icon=QIconifyIcon("codicon:search"),
+        default_location=ViewContainerLocation.LEFT_SIDEBAR,
+    ),
+    ViewDescriptor(
+        id="source-control",
+        name="Source Control",
+        factory=lambda: _make_label("Source Control"),
+        icon=QIconifyIcon("codicon:source-control"),
+        default_location=ViewContainerLocation.LEFT_SIDEBAR,
+    ),
+    ViewDescriptor(
         id="properties",
         name="Properties",
         factory=lambda: _make_label("Properties"),

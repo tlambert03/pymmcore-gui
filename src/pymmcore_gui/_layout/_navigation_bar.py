@@ -16,6 +16,7 @@ class NavigationBarAdapter(QWidget):
     """Wraps Qlementine's NavigationBar with the same interface as ActivityBar."""
 
     itemToggled = Signal(str)  # item_id, or "" to collapse
+    itemDropped = Signal(str, int)  # (view_id, target_insert_index) — Phase B will emit
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)

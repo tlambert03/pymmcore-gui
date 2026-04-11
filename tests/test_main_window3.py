@@ -688,6 +688,298 @@ def test_drag_restore_does_not_disturb_other_sidebar(
     )
 
 
+# ---- DnD Phase A: ActivityBar drag source + drop target ------------------
+#
+# These tests exercise the Phase A drop handler by building a QDropEvent
+# directly and calling ActivityBar.dropEvent() on it, bypassing Qt's native
+# drag loop (which is synchronous and modal and can't be driven from a test).
+# That's the standard Qt DnD testing pattern — it verifies drop-side logic
+# in isolation from the platform-dependent drag-start machinery.
+
+
+def _make_drop_event(view_id: str, pos: tuple[int, int]) -> object:
+    """Build a QDropEvent carrying *view_id* at local position *pos*.
+
+    Note: ``QDropEvent`` does not take ownership of its ``QMimeData``,
+    so we attach it to the event object as an attribute to keep the
+    Python reference alive until the caller is done with the event.
+    Otherwise the C++ QMimeData is destroyed when this function returns
+    and the subsequent ``e.mimeData()`` access segfaults.
+    """
+    from pymmcore_gui._layout._dnd import PMM_VIEW_MIME_TYPE, encode_view_id
+    from pymmcore_gui._qt.QtCore import QEvent, QMimeData, QPointF
+    from pymmcore_gui._qt.QtCore import Qt as _Qt
+    from pymmcore_gui._qt.QtGui import QDropEvent
+
+    mime = QMimeData()
+    mime.setData(PMM_VIEW_MIME_TYPE, encode_view_id(view_id))
+    evt = QDropEvent(
+        QPointF(*pos),
+        _Qt.DropAction.MoveAction,
+        mime,
+        _Qt.MouseButton.LeftButton,
+        _Qt.KeyboardModifier.NoModifier,
+        QEvent.Type.Drop,
+    )
+    evt._keep_alive = mime
+    return evt
+
+
+def _dnd_workbench(qtbot: QtBot) -> WorkbenchWidget:
+    """Isolated WorkbenchWidget with exactly three left-sidebar views and
+    two panel views. Built directly (not via MicroManagerGUI) so the test
+    environment is stable under changes to the real placeholder view set.
+    Shown via ``w.show()`` so the activity bar has real button geometries.
+    """
+    w = WorkbenchWidget(central=_label())
+    qtbot.addWidget(w)
+    for vid in ("explorer", "search", "debug"):
+        w.registerView(
+            ViewDescriptor(
+                id=vid,
+                name=vid.title(),
+                factory=_label,
+                default_location=L.LEFT_SIDEBAR,
+            )
+        )
+    for vid in ("terminal", "console"):
+        w.registerView(
+            ViewDescriptor(
+                id=vid,
+                name=vid.title(),
+                factory=_label,
+                default_location=L.PANEL,
+            )
+        )
+    w.show()
+    qtbot.waitExposed(w)
+    return w
+
+
+class TestActivityBarDrop:
+    def test_drop_different_container_at_front(self, qtbot: QtBot) -> None:
+        wb = _dnd_workbench(qtbot)
+        ab = wb.leftSidebar.activityBar
+        first_rect = next(iter(ab._buttons.values())).geometry()
+        drop_pos = (first_rect.center().x(), first_rect.y() + 1)
+
+        ab.dropEvent(_make_drop_event("terminal", drop_pos))  # type: ignore[arg-type]
+        qtbot.wait(10)
+
+        assert wb.leftSidebar.viewIds[0] == "terminal"
+        assert wb.bottomPanel.viewIds == ["console"]
+        assert wb.registry.get_view_location("terminal") == L.LEFT_SIDEBAR
+
+    def test_drop_different_container_at_middle(self, qtbot: QtBot) -> None:
+        wb = _dnd_workbench(qtbot)
+        ab = wb.leftSidebar.activityBar
+        btns = list(ab._buttons.values())
+        # Drop just above the second button's midpoint → insert at index 1
+        second_rect = btns[1].geometry()
+        drop_pos = (second_rect.center().x(), second_rect.y() + 1)
+
+        ab.dropEvent(_make_drop_event("terminal", drop_pos))  # type: ignore[arg-type]
+        qtbot.wait(10)
+
+        assert wb.leftSidebar.viewIds == [
+            "explorer",
+            "terminal",
+            "search",
+            "debug",
+        ]
+        assert wb.registry.get_view_location("terminal") == L.LEFT_SIDEBAR
+
+    def test_drop_different_container_at_end(self, qtbot: QtBot) -> None:
+        wb = _dnd_workbench(qtbot)
+        ab = wb.leftSidebar.activityBar
+        last_rect = list(ab._buttons.values())[-1].geometry()
+        drop_pos = (
+            last_rect.center().x(),
+            last_rect.y() + last_rect.height() + 10,
+        )
+
+        ab.dropEvent(_make_drop_event("terminal", drop_pos))  # type: ignore[arg-type]
+        qtbot.wait(10)
+
+        assert wb.leftSidebar.viewIds[-1] == "terminal"
+
+    def test_reorder_within_same_container(self, qtbot: QtBot) -> None:
+        wb = _dnd_workbench(qtbot)
+        ab = wb.leftSidebar.activityBar
+        # Drop "debug" (currently at index 2) above "search" (index 1)
+        btns = list(ab._buttons.values())
+        search_rect = btns[1].geometry()
+        drop_pos = (search_rect.center().x(), search_rect.y() + 1)
+
+        ab.dropEvent(_make_drop_event("debug", drop_pos))  # type: ignore[arg-type]
+        qtbot.wait(10)
+
+        assert wb.leftSidebar.viewIds == ["explorer", "debug", "search"]
+
+    def test_drop_unknown_mime_is_ignored(self, qtbot: QtBot) -> None:
+        from pymmcore_gui._qt.QtCore import QEvent, QMimeData, QPointF
+        from pymmcore_gui._qt.QtCore import Qt as _Qt
+        from pymmcore_gui._qt.QtGui import QDropEvent
+
+        wb = _dnd_workbench(qtbot)
+        ab = wb.leftSidebar.activityBar
+        before = list(wb.leftSidebar.viewIds)
+
+        mime = QMimeData()
+        mime.setText("not a view id")
+        evt = QDropEvent(
+            QPointF(10, 10),
+            _Qt.DropAction.MoveAction,
+            mime,
+            _Qt.MouseButton.LeftButton,
+            _Qt.KeyboardModifier.NoModifier,
+            QEvent.Type.Drop,
+        )
+        ab.dropEvent(evt)
+        qtbot.wait(10)
+
+        assert wb.leftSidebar.viewIds == before
+
+    def test_drop_unknown_view_id_is_ignored(self, qtbot: QtBot) -> None:
+        wb = _dnd_workbench(qtbot)
+        ab = wb.leftSidebar.activityBar
+        before_left = list(wb.leftSidebar.viewIds)
+        before_panel = list(wb.bottomPanel.viewIds)
+
+        ab.dropEvent(_make_drop_event("does-not-exist", (10, 10)))  # type: ignore[arg-type]
+        qtbot.wait(10)
+
+        assert wb.leftSidebar.viewIds == before_left
+        assert wb.bottomPanel.viewIds == before_panel
+
+    def test_drop_of_pinned_view_is_ignored(self, qtbot: QtBot) -> None:
+        wb = _dnd_workbench(qtbot)
+        wb.registerView(
+            ViewDescriptor(
+                id="pinned",
+                name="Pinned",
+                factory=_label,
+                default_location=L.PANEL,
+                can_move=False,
+            )
+        )
+        ab = wb.leftSidebar.activityBar
+        first_rect = next(iter(ab._buttons.values())).geometry()
+        drop_pos = (first_rect.center().x(), first_rect.y() + 1)
+
+        ab.dropEvent(_make_drop_event("pinned", drop_pos))  # type: ignore[arg-type]
+        qtbot.wait(10)
+
+        # Pinned view stays in its original container.
+        assert "pinned" not in wb.leftSidebar.viewIds
+        assert "pinned" in wb.bottomPanel.viewIds
+        assert wb.registry.get_view_location("pinned") == L.PANEL
+
+    def test_drop_preserves_active_view_in_source(self, qtbot: QtBot) -> None:
+        wb = _dnd_workbench(qtbot)
+        # Activate console in the bottom panel, then drag terminal out.
+        wb.bottomPanel.activityBar.setActive("console")
+        ab = wb.leftSidebar.activityBar
+        first_rect = next(iter(ab._buttons.values())).geometry()
+        drop_pos = (first_rect.center().x(), first_rect.y() + 1)
+
+        ab.dropEvent(_make_drop_event("terminal", drop_pos))  # type: ignore[arg-type]
+        qtbot.wait(10)
+
+        # Console should still be active in the panel.
+        assert wb.bottomPanel.activityBar.activeItem == "console"
+
+    def test_compute_insert_index_vertical(self, qtbot: QtBot) -> None:
+        """Unit test of the hit-test math in isolation."""
+        from pymmcore_gui._qt.QtCore import QPoint
+
+        wb = _dnd_workbench(qtbot)
+        ab = wb.leftSidebar.activityBar
+        btns = list(ab._buttons.values())
+        x_center = btns[0].geometry().center().x()
+
+        # Above all items → index 0
+        assert ab._compute_insert_index(QPoint(x_center, -5)) == 0
+        # Top of first item (above its midpoint) → index 0
+        first_top = btns[0].geometry().y() + 1
+        assert ab._compute_insert_index(QPoint(x_center, first_top)) == 0
+        # Bottom half of first → index 1
+        first_bottom = btns[0].geometry().y() + btns[0].geometry().height() - 1
+        assert ab._compute_insert_index(QPoint(x_center, first_bottom)) == 1
+        # Past everything → count
+        past = btns[-1].geometry().y() + btns[-1].geometry().height() + 100
+        assert ab._compute_insert_index(QPoint(x_center, past)) == len(btns)
+
+    def test_reorder_of_active_view_keeps_stack_in_sync(self, qtbot: QtBot) -> None:
+        """Regression guard: reordering the currently-active view via
+        drop must not desynchronize the QStackedWidget's currentWidget
+        from the ActivityBar's activeItem.
+
+        Root cause: ``QStackedWidget.removeWidget(w)`` picks a new
+        currentWidget if *w* was the current one. ``PaneContainer.
+        reorderView`` must restore it after re-inserting.
+        """
+        wb = _dnd_workbench(qtbot)
+        wb.leftSidebar.activityBar.setActive("explorer")
+        assert (
+            wb.leftSidebar.stack.currentWidget()
+            is wb.leftSidebar._views["explorer"].widget
+        )
+
+        # Reorder explorer to the end via the registry (same path DnD uses)
+        wb.registry.reorder_view("explorer", 2)
+
+        assert wb.leftSidebar.activityBar.activeItem == "explorer"
+        assert wb.leftSidebar.viewIds == ["search", "debug", "explorer"]
+        # The crucial assertion: stack and bar must still agree.
+        assert (
+            wb.leftSidebar.stack.currentWidget()
+            is wb.leftSidebar._views["explorer"].widget
+        )
+
+    def test_reorder_of_non_active_view_does_not_touch_current(
+        self, qtbot: QtBot
+    ) -> None:
+        """Reordering a view that *isn't* the current one must not
+        change what the stack is showing."""
+        wb = _dnd_workbench(qtbot)
+        wb.leftSidebar.activityBar.setActive("search")
+        search_widget = wb.leftSidebar._views["search"].widget
+        assert wb.leftSidebar.stack.currentWidget() is search_widget
+
+        wb.registry.reorder_view("explorer", 2)
+
+        # search is still the current view — its widget identity is
+        # stable across the reorder.
+        assert wb.leftSidebar.activityBar.activeItem == "search"
+        assert wb.leftSidebar.stack.currentWidget() is search_widget
+
+    def test_drag_source_eventfilter_fires_on_button_press(self, qtbot: QtBot) -> None:
+        """Regression guard for the Qt event-dispatch gotcha: mouse events
+        delivered to a QToolButton child are eaten by the button and never
+        propagate to the parent ActivityBar's mousePressEvent. The fix is
+        an event filter installed on each button; this test verifies it
+        captures the press and records a drag candidate.
+        """
+        from PyQt6.QtTest import QTest
+
+        wb = _dnd_workbench(qtbot)
+        ab = wb.leftSidebar.activityBar
+        btns = list(ab._buttons.values())
+
+        assert ab._drag_candidate_id is None
+
+        QTest.mousePress(btns[1], Qt.MouseButton.LeftButton)
+        qtbot.wait(10)
+        assert ab._drag_candidate_id == btns[1].objectName()
+        assert ab._drag_start_pos is not None
+
+        # Releasing without moving clears the candidate.
+        QTest.mouseRelease(btns[1], Qt.MouseButton.LeftButton)
+        qtbot.wait(10)
+        assert ab._drag_candidate_id is None
+
+
 # ---- ViewRegistry / reorder / indexed move --------------------------------
 
 

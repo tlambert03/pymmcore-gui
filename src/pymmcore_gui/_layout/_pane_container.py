@@ -51,6 +51,7 @@ class PaneContainer(QWidget):
     """
 
     viewToggled = Signal(str)  # forwarded from activityBar
+    viewDropped = Signal(str, int)  # (view_id, target_insert_index), forwarded
     abPositionChanged = Signal(ActivityBarPosition)
 
     def __init__(
@@ -230,10 +231,16 @@ class PaneContainer(QWidget):
         # Reorder the activity bar.
         self._activity_bar.moveItem(old_index, new_index)
 
-        # Reorder the stack: take the widget out and re-insert.
+        # Reorder the stack: take the widget out and re-insert. If the
+        # widget was the stack's current one, ``removeWidget`` makes
+        # Qt pick a new current — we must restore it afterward so the
+        # visible content matches the (unchanged) active-item selection.
         entry = item[1]
+        was_current = self._stack.currentWidget() is entry.widget
         self._stack.removeWidget(entry.widget)
         self._stack.insertWidget(new_index, entry.widget)
+        if was_current:
+            self._stack.setCurrentWidget(entry.widget)
 
     def activate(self, view_id: str) -> None:
         """Show a specific view by id."""
@@ -288,6 +295,7 @@ class PaneContainer(QWidget):
 
     def _wire_bar(self) -> None:
         self._activity_bar.itemToggled.connect(self.viewToggled)
+        self._activity_bar.itemDropped.connect(self.viewDropped)
         self._activity_bar.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self._activity_bar.customContextMenuRequested.connect(self._show_context_menu)
 

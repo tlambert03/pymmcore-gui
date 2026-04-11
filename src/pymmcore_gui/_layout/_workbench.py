@@ -117,6 +117,7 @@ class WorkbenchWidget(QWidget):
         # ---- wire container signals ----
         for container in self._containers.values():
             container.viewToggled.connect(self._on_container_view_toggled)
+            container.viewDropped.connect(self._on_container_view_dropped)
             container.abPositionChanged.connect(self._on_ab_position_changed)
 
         # ---- build initial splitter tree ----
@@ -353,6 +354,31 @@ class WorkbenchWidget(QWidget):
         new_index: int,
     ) -> None:
         self._containers[location].reorderView(view_id, new_index)
+
+    def _on_container_view_dropped(self, view_id: str, index: int) -> None:
+        """Handle a DnD drop from one of our container bars.
+
+        ``sender()`` identifies which container received the drop; we
+        look up that container's :class:`ViewContainerLocation` and ask
+        the registry to move *view_id* there at *index*. The registry's
+        ``view_moved`` / ``view_reordered`` signals handle the actual
+        widget reparenting via the existing handlers.
+
+        Silently ignores moves the registry refuses (``can_move=False``,
+        unknown id) so a bad drag is a no-op rather than a crash.
+        """
+        sender = self.sender()
+        target_loc: ViewContainerLocation | None = None
+        for loc, container in self._containers.items():
+            if container is sender:
+                target_loc = loc
+                break
+        if target_loc is None:
+            return
+        try:
+            self._registry.move_view_to_location(view_id, target_loc, index=index)
+        except (KeyError, PermissionError):
+            pass
 
     def toggleLeftSidebar(self) -> None:
         self._toggle_container(self._left_sidebar)

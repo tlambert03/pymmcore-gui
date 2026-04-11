@@ -3612,7 +3612,7 @@ requires-dist = [
     { name = "pymmcore-plus", extras = ["cli"], git = "https://github.com/pymmcore-plus/pymmcore-plus?rev=main" },
     { name = "pymmcore-widgets", git = "https://github.com/pymmcore-plus/pymmcore-widgets?rev=christina" },
     { name = "pyqt6", specifier = "==6.9.1" },
-    { name = "pyqt6-qlementine", specifier = ">=1.4.3.0rc5" },
+    { name = "pyqt6-qlementine", directory = "../PyQlementine/packages/PyQt6-Qlementine" },
     { name = "pyqt6ads", specifier = "==4.4.0.post2" },
     { name = "pyyaml", specifier = ">=6.0.2" },
     { name = "qtconsole", specifier = ">=5.6.1" },
@@ -3811,15 +3811,20 @@ wheels = [
 [[package]]
 name = "pyqt6-qlementine"
 version = "1.4.3.0rc6"
-source = { registry = "https://pypi.org/simple" }
+source = { directory = "../PyQlementine/packages/PyQt6-Qlementine" }
 dependencies = [
     { name = "pyqt6" },
-    { name = "pyqt6-sip" },
 ]
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/07/c7/d0147ae05f272af20728b7666c84158243bb6a68a83ea54350caf2c92928/pyqt6_qlementine-1.4.3.0rc6-cp310-abi3-macosx_11_0_arm64.whl", hash = "sha256:89bb29626083f60bd85253696365c357ce140b4b6f2bf1e1fd74c6bd406f3649", size = 2356823, upload-time = "2026-04-03T14:48:51.855Z" },
-    { url = "https://files.pythonhosted.org/packages/39/ec/6528e11cbefbc59e3f53b1e0ee07f13004a1d78544c9ddaf8e43ba658977/pyqt6_qlementine-1.4.3.0rc6-cp310-abi3-manylinux_2_28_x86_64.whl", hash = "sha256:3aa0ce85b64359e7cb3a8536af6f9e9a6ef16ac1b983947d7e8e5326297781ed", size = 2434549, upload-time = "2026-04-03T14:48:53.592Z" },
-    { url = "https://files.pythonhosted.org/packages/0b/76/fcaafbdb3337d3c2d30f2b8bf6cc657d54c55a3f9523d53f4ff590af79b6/pyqt6_qlementine-1.4.3.0rc6-cp310-abi3-win_amd64.whl", hash = "sha256:8dbbe2dff898adcc55195d8c72bf297b09f51689ac15713bb671efab09a0a8df", size = 2349675, upload-time = "2026-04-03T14:48:55.387Z" },
+
+[package.metadata]
+requires-dist = [{ name = "pyqt6", specifier = ">=6.8.0" }]
+
+[package.metadata.requires-dev]
+build = [
+    { name = "pyqt-builder", specifier = ">=1.17,<2" },
+    { name = "pyqt6", specifier = "==6.8.1" },
+    { name = "pyqt6-qt6", specifier = "==6.8.2" },
+    { name = "sip", specifier = ">=6,<7" },
 ]
 
 [[package]]
