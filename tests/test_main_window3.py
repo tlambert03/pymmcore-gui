@@ -837,6 +837,32 @@ class TestActivityBarDrop:
 
         assert wb.leftSidebar.viewIds == ["explorer", "debug", "search"]
 
+    def test_reorder_forward_gap_compensates(self, qtbot: QtBot) -> None:
+        """Regression guard: dragging an item to a gap *after* its
+        current position must land it in that gap, not past it.
+
+        Bug was: dropping explorer (index 0) between search (1) and
+        debug (2) landed it at the END ([search, debug, explorer])
+        because the registry interprets the drop index against the
+        post-remove list, but the drop handler was computing it
+        against the pre-move visual. The drop handler now compensates
+        by subtracting 1 when the moved item was before the target.
+        """
+        wb = _dnd_workbench(qtbot)
+        ab = wb.leftSidebar.activityBar
+        # Start: [explorer, search, debug]
+        # Drop explorer (index 0) between search (index 1) and debug
+        # (index 2). The drop indicator reports visual gap index 2.
+        btns = list(ab._buttons.values())
+        debug_rect = btns[2].geometry()
+        drop_pos = (debug_rect.center().x(), debug_rect.y() + 1)
+
+        ab.dropEvent(_make_drop_event("explorer", drop_pos))
+        qtbot.wait(10)
+
+        # Explorer must land BETWEEN search and debug, not after.
+        assert wb.leftSidebar.viewIds == ["search", "explorer", "debug"]
+
     def test_drop_unknown_mime_is_ignored(self, qtbot: QtBot) -> None:
         from pymmcore_gui._qt.QtCore import QEvent, QMimeData, QPointF
         from pymmcore_gui._qt.QtCore import Qt as _Qt
@@ -975,6 +1001,91 @@ class TestActivityBarDrop:
         # stable across the reorder.
         assert wb.leftSidebar.activityBar.activeItem == "search"
         assert wb.leftSidebar.stack.currentWidget() is search_widget
+
+    def test_drop_indicator_visibility_lifecycle(self, qtbot: QtBot) -> None:
+        """Drop indicator should be hidden at rest, visible while a
+        drag is over the bar, and hidden again on leave."""
+        from pymmcore_gui._layout._dnd import (
+            PMM_VIEW_MIME_TYPE,
+            encode_view_id,
+        )
+        from pymmcore_gui._qt.QtCore import QMimeData
+        from pymmcore_gui._qt.QtGui import QDragEnterEvent, QDragLeaveEvent
+
+        wb = _dnd_workbench(qtbot)
+        ab = wb.leftSidebar.activityBar
+        indicator = ab._drop_indicator
+
+        assert not indicator.isVisible()
+
+        mime = QMimeData()
+        mime.setData(PMM_VIEW_MIME_TYPE, encode_view_id("terminal"))
+        first_btn_center = next(iter(ab._buttons.values())).geometry().center()
+        enter = QDragEnterEvent(
+            first_btn_center,
+            Qt.DropAction.MoveAction,
+            mime,
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        enter._keep_alive = mime
+        ab.dragEnterEvent(enter)
+        qtbot.wait(10)
+        assert indicator.isVisible()
+
+        leave = QDragLeaveEvent()
+        ab.dragLeaveEvent(leave)
+        qtbot.wait(10)
+        assert not indicator.isVisible()
+
+    def test_drop_indicator_hidden_after_drop(self, qtbot: QtBot) -> None:
+        """After a successful drop, the indicator is hidden."""
+        from pymmcore_gui._layout._dnd import (
+            PMM_VIEW_MIME_TYPE,
+            encode_view_id,
+        )
+        from pymmcore_gui._qt.QtCore import QMimeData
+        from pymmcore_gui._qt.QtGui import QDragEnterEvent
+
+        wb = _dnd_workbench(qtbot)
+        ab = wb.leftSidebar.activityBar
+        indicator = ab._drop_indicator
+
+        mime = QMimeData()
+        mime.setData(PMM_VIEW_MIME_TYPE, encode_view_id("terminal"))
+        pos = next(iter(ab._buttons.values())).geometry().center()
+        enter = QDragEnterEvent(
+            pos,
+            Qt.DropAction.MoveAction,
+            mime,
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        enter._keep_alive = mime
+        ab.dragEnterEvent(enter)
+        assert indicator.isVisible()
+
+        ab.dropEvent(_make_drop_event("terminal", (pos.x(), pos.y())))
+        qtbot.wait(10)
+        assert not indicator.isVisible()
+
+    def test_drop_indicator_position_at_extremes(self, qtbot: QtBot) -> None:
+        """Indicator position at index=0, index=count, and middle."""
+        wb = _dnd_workbench(qtbot)
+        ab = wb.leftSidebar.activityBar
+        btns = list(ab._buttons.values())
+        assert len(btns) >= 3
+
+        pos_0 = ab._drop_indicator_position(0)
+        assert pos_0 == btns[0].geometry().y()
+
+        pos_end = ab._drop_indicator_position(len(btns))
+        last = btns[-1].geometry()
+        assert pos_end == last.y() + last.height()
+
+        pos_1 = ab._drop_indicator_position(1)
+        assert btns[0].geometry().y() < pos_1
+        assert pos_1 < btns[1].geometry().y() + btns[1].geometry().height()
 
     def test_drag_source_eventfilter_survives_button_deletion(
         self, qtbot: QtBot
@@ -1216,6 +1327,117 @@ class TestNavigationBarDrop:
 
         assert wb.leftSidebar.viewIds == [*before, "terminal"]
         assert wb.registry.get_view_location("terminal") == L.LEFT_SIDEBAR
+
+    def test_nav_drop_indicator_visibility(self, qtbot: QtBot) -> None:
+        """Indicator on the inner nav bar shows/hides across the drag
+        lifecycle; at rest it's hidden."""
+        from pymmcore_gui._layout._dnd import (
+            PMM_VIEW_MIME_TYPE,
+            encode_view_id,
+        )
+        from pymmcore_gui._qt.QtCore import QMimeData
+        from pymmcore_gui._qt.QtGui import QDragEnterEvent, QDragLeaveEvent
+
+        wb = _dnd_workbench(qtbot)
+        nav = wb.bottomPanel.activityBar._nav
+        indicator = nav._drop_indicator
+
+        assert not indicator.isVisible()
+
+        mime = QMimeData()
+        mime.setData(PMM_VIEW_MIME_TYPE, encode_view_id("explorer"))
+        # Drop cursor roughly in the middle of the first item
+        first_rect = nav.itemRect(0)
+        enter = QDragEnterEvent(
+            first_rect.center(),
+            Qt.DropAction.MoveAction,
+            mime,
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        enter._keep_alive = mime
+        nav.dragEnterEvent(enter)
+        qtbot.wait(10)
+        assert indicator.isVisible()
+
+        nav.dragLeaveEvent(QDragLeaveEvent())
+        qtbot.wait(10)
+        assert not indicator.isVisible()
+
+    def test_nav_drop_indicator_stretch_area_at_end(self, qtbot: QtBot) -> None:
+        """Drag entering the adapter's stretch area (outside the inner
+        nav) should show the indicator on the inner nav at the very
+        right edge — the position where an append would land."""
+        from pymmcore_gui._layout import NavigationBarAdapter
+        from pymmcore_gui._layout._dnd import (
+            PMM_VIEW_MIME_TYPE,
+            encode_view_id,
+        )
+        from pymmcore_gui._qt.QtCore import QMimeData, QPoint
+        from pymmcore_gui._qt.QtGui import QDragEnterEvent
+
+        wb = _dnd_workbench(qtbot)
+        adapter = wb.bottomPanel.activityBar
+        assert isinstance(adapter, NavigationBarAdapter)
+        nav = adapter._nav
+        indicator = nav._drop_indicator
+
+        mime = QMimeData()
+        mime.setData(PMM_VIEW_MIME_TYPE, encode_view_id("explorer"))
+        # A position in the adapter (stretch area) — doesn't have to
+        # match the inner nav's geometry; the adapter's handler always
+        # passes itemCount() to showDropIndicatorAt.
+        enter = QDragEnterEvent(
+            QPoint(nav.width() + 20, 10),
+            Qt.DropAction.MoveAction,
+            mime,
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        enter._keep_alive = mime
+        adapter.dragEnterEvent(enter)
+        qtbot.wait(10)
+
+        assert indicator.isVisible()
+        # The indicator was positioned at the end-of-items x coordinate
+        end_x = nav._drop_indicator_x(nav.itemCount())
+        half = indicator.THICKNESS // 2
+        assert indicator.geometry().x() == end_x - half
+
+    def test_nav_reorder_forward_gap_compensates(self, qtbot: QtBot) -> None:
+        """Same bug as test_reorder_forward_gap_compensates but on
+        the horizontal NavigationBar path. The drop handler's
+        pre-move → post-move index conversion must also work when
+        the target container's bar is a NavigationBarAdapter.
+        """
+
+        wb = _dnd_workbench(qtbot)
+        # Add a third panel view so we have [terminal, console, output]
+        # and can drop terminal between console and output.
+        wb.registerView(
+            ViewDescriptor(
+                id="output",
+                name="Output",
+                factory=_label,
+                icon=_test_icon(),
+                default_location=L.PANEL,
+            )
+        )
+        qtbot.wait(10)
+        assert wb.bottomPanel.viewIds == ["terminal", "console", "output"]
+
+        nav = wb.bottomPanel.activityBar._nav
+        # Find a point inside the "output" item (index 2) that's in
+        # its left half — the drop indicator will report gap index 2.
+        output_rect = nav.itemRect(2)
+        drop_x = output_rect.x() + 2  # just inside, left half
+        drop_pos = (drop_x, nav.height() // 2)
+
+        nav.dropEvent(_make_drop_event("terminal", drop_pos))
+        qtbot.wait(50)
+
+        # Terminal should land between console and output, not after.
+        assert wb.bottomPanel.viewIds == ["console", "terminal", "output"]
 
     def test_drop_on_nav_adapter_stretch_area_appends(self, qtbot: QtBot) -> None:
         """Regression for the dead zone to the right of the last tab.

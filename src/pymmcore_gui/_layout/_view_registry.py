@@ -140,9 +140,21 @@ class ViewRegistry(QObject):
     ) -> None:
         """Move *view_id* to *location*, optionally at *index*.
 
-        If *index* is ``None`` the view is appended. A move within the
-        same location reorders; a move between locations emits
-        ``view_moved``, a reorder emits ``view_reordered``.
+        If *index* is ``None`` the view is appended. Otherwise *index*
+        is interpreted as a position in the **post-move** list (after
+        the view has been removed from its old location). For a
+        same-container reorder, this means "the final index the view
+        should end up at".
+
+        Drop handlers, which compute insertion indices in the user's
+        **pre-move** visual layout, must convert to post-move indices
+        before calling this method: subtract 1 when the moved view
+        was at an index strictly less than the target. See
+        :meth:`WorkbenchWidget._on_container_view_dropped`.
+
+        A move within the same location reorders; a move between
+        locations emits ``view_moved``, a reorder emits
+        ``view_reordered``.
 
         Raises :class:`PermissionError` if the descriptor has
         ``can_move=False``. This enforcement is checked here so every

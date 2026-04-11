@@ -14,6 +14,7 @@ from pymmcore_gui._qt.QtWidgets import (
 )
 
 from ._dnd import PMM_VIEW_MIME_TYPE, decode_view_id, encode_view_id
+from ._drop_indicator import DropIndicator
 
 if TYPE_CHECKING:
     from pymmcore_gui._qt.QtGui import (
@@ -59,9 +60,9 @@ class ActivityBar(QWidget):
         self._drag_start_pos: QPoint | None = None
         self._drag_candidate_id: str | None = None
 
-        # Drop-target state. The concrete drop indicator is a Phase C
-        # concern; for now we just track the insertion index we'd use.
+        # Drop-target state.
         self._drop_insert_index: int | None = None
+        self._drop_indicator = DropIndicator(self, orientation)
         self.setAcceptDrops(True)
 
     # ---- public API -------------------------------------------------------
@@ -287,16 +288,22 @@ class ActivityBar(QWidget):
             e.ignore()
             return
         e.acceptProposedAction()
+        index = self._compute_insert_index(e.position().toPoint())
+        self._drop_insert_index = index
+        self._drop_indicator.showAt(self._drop_indicator_position(index))
 
     def dragMoveEvent(self, e: QDragMoveEvent) -> None:
         if decode_view_id(e.mimeData()) is None:
             e.ignore()
             return
-        self._drop_insert_index = self._compute_insert_index(e.position().toPoint())
+        index = self._compute_insert_index(e.position().toPoint())
+        self._drop_insert_index = index
+        self._drop_indicator.showAt(self._drop_indicator_position(index))
         e.acceptProposedAction()
 
     def dragLeaveEvent(self, e: QDragLeaveEvent) -> None:
         self._drop_insert_index = None
+        self._drop_indicator.hide()
         super().dragLeaveEvent(e)
 
     def dropEvent(self, e: QDropEvent) -> None:
@@ -306,6 +313,7 @@ class ActivityBar(QWidget):
             return
         index = self._compute_insert_index(e.position().toPoint())
         self._drop_insert_index = None
+        self._drop_indicator.hide()
         e.acceptProposedAction()
         self.itemDropped.emit(view_id, index)
 
@@ -330,3 +338,32 @@ class ActivityBar(QWidget):
                 if pos.x() < midpoint:
                     return i
         return len(self._buttons)
+
+    def _drop_indicator_position(self, index: int) -> int:
+        """Return the primary-axis coordinate for a drop indicator at *index*.
+
+        For index=0, the line sits at the top/left edge of the first
+        button. For index=count, at the bottom/right edge of the last
+        one. Otherwise between the two neighboring buttons.
+        """
+        count = len(self._buttons)
+        vertical = self._orientation == Qt.Orientation.Vertical
+        if count == 0:
+            margin = self._layout.contentsMargins()
+            return margin.top() if vertical else margin.left()
+
+        buttons = list(self._buttons.values())
+        clamped = max(0, min(index, count))
+
+        if clamped == 0:
+            g = buttons[0].geometry()
+            return g.y() if vertical else g.x()
+        if clamped == count:
+            g = buttons[-1].geometry()
+            return (g.y() + g.height()) if vertical else (g.x() + g.width())
+
+        above = buttons[clamped - 1].geometry()
+        below = buttons[clamped].geometry()
+        if vertical:
+            return (above.y() + above.height() + below.y()) // 2
+        return (above.x() + above.width() + below.x()) // 2

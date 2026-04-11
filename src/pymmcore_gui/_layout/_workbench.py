@@ -371,6 +371,13 @@ class WorkbenchWidget(QWidget):
         ``view_moved`` / ``view_reordered`` signals handle the actual
         widget reparenting via the existing handlers.
 
+        ``index`` arrives as a **pre-move visual gap** position — what
+        the user was pointing at when they released. The registry
+        expects a **post-move list** index, so we convert here: for a
+        same-container reorder where the moved view is currently
+        *before* the target, subtract 1 from the target to compensate
+        for the shift that the remove step will cause.
+
         The actual registry mutation is deferred via
         ``QTimer.singleShot(0, ...)`` so it runs *after*
         ``QDrag.exec`` has fully unwound. Mutating the drag source
@@ -390,9 +397,24 @@ class WorkbenchWidget(QWidget):
         if target_loc is None:
             return
 
+        # Convert the user-visible gap index into a post-move insertion
+        # index. This only matters for same-container forward moves.
+        current_loc = self._registry.get_view_location(view_id)
+        adjusted_index = index
+        if current_loc == target_loc:
+            current_order = self._registry.get_views_in_location(target_loc)
+            try:
+                old_index = current_order.index(view_id)
+            except ValueError:
+                old_index = -1
+            if 0 <= old_index < index:
+                adjusted_index = index - 1
+
         def _apply() -> None:
             try:
-                self._registry.move_view_to_location(view_id, target_loc, index=index)
+                self._registry.move_view_to_location(
+                    view_id, target_loc, index=adjusted_index
+                )
             except (KeyError, PermissionError):
                 pass
 

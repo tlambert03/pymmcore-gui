@@ -10,6 +10,7 @@ from pymmcore_gui._qt.QtGui import QDrag, QIcon, QMouseEvent
 from pymmcore_gui._qt.QtWidgets import QApplication, QHBoxLayout, QWidget
 
 from ._dnd import PMM_VIEW_MIME_TYPE, decode_view_id, encode_view_id
+from ._drop_indicator import DropIndicator
 from ._enums import NavDisplayMode
 
 if TYPE_CHECKING:
@@ -43,6 +44,7 @@ class _DraggableNavigationBar(NavigationBar):
         super().__init__(parent)  # pyright: ignore[reportCallIssue]
         self._drag_start_pos: QPoint | None = None
         self._drag_candidate_index: int = -1
+        self._drop_indicator = DropIndicator(self, Qt.Orientation.Horizontal)
         self.setAcceptDrops(True)
 
     # ---- drag source ------------------------------------------------------
@@ -88,14 +90,17 @@ class _DraggableNavigationBar(NavigationBar):
             e.ignore()
             return
         e.acceptProposedAction()
+        self.showDropIndicatorAt(self._compute_insert_index(e.position().toPoint()))
 
     def dragMoveEvent(self, e: QDragMoveEvent) -> None:
         if decode_view_id(e.mimeData()) is None:
             e.ignore()
             return
+        self.showDropIndicatorAt(self._compute_insert_index(e.position().toPoint()))
         e.acceptProposedAction()
 
     def dragLeaveEvent(self, e: QDragLeaveEvent) -> None:
+        self.hideDropIndicator()
         super().dragLeaveEvent(e)
 
     def dropEvent(self, e: QDropEvent) -> None:
@@ -104,8 +109,38 @@ class _DraggableNavigationBar(NavigationBar):
             e.ignore()
             return
         idx = self._compute_insert_index(e.position().toPoint())
+        self.hideDropIndicator()
         e.acceptProposedAction()
         self.viewDropped.emit(view_id, idx)
+
+    # ---- drop indicator ---------------------------------------------------
+
+    def showDropIndicatorAt(self, index: int) -> None:
+        """Show the drop indicator at the insertion position *index*.
+
+        Also called by :class:`NavigationBarAdapter` when a drag is
+        over the adapter's stretch region (outside the inner bar) —
+        the indicator is positioned at the end of the last item.
+        """
+        self._drop_indicator.showAt(self._drop_indicator_x(index))
+
+    def hideDropIndicator(self) -> None:
+        self._drop_indicator.hide()
+
+    def _drop_indicator_x(self, index: int) -> int:
+        """Return the x coordinate for the drop indicator at *index*."""
+        count = self.itemCount()
+        if count == 0:
+            return 0
+        clamped = max(0, min(index, count))
+        if clamped == 0:
+            return int(self.itemRect(0).x())
+        if clamped == count:
+            last = self.itemRect(count - 1)
+            return int(last.x() + last.width())
+        above = self.itemRect(clamped - 1)
+        below = self.itemRect(clamped)
+        return int((above.x() + above.width() + below.x()) // 2)
 
     def itemRect(self, index: int) -> QRect:
         """Return the bounding rect of item *index* in widget coordinates.
@@ -420,18 +455,28 @@ class NavigationBarAdapter(QWidget):
             e.ignore()
             return
         e.acceptProposedAction()
+        # Stretch-area drop will always append — show the indicator
+        # at the far end of the inner bar so the user gets visual
+        # confirmation that the drop will land after the last tab.
+        self._nav.showDropIndicatorAt(self._nav.itemCount())
 
     def dragMoveEvent(self, e: QDragMoveEvent) -> None:
         if decode_view_id(e.mimeData()) is None:
             e.ignore()
             return
+        self._nav.showDropIndicatorAt(self._nav.itemCount())
         e.acceptProposedAction()
+
+    def dragLeaveEvent(self, e: QDragLeaveEvent) -> None:
+        self._nav.hideDropIndicator()
+        super().dragLeaveEvent(e)
 
     def dropEvent(self, e: QDropEvent) -> None:
         view_id = decode_view_id(e.mimeData())
         if view_id is None:
             e.ignore()
             return
+        self._nav.hideDropIndicator()
         e.acceptProposedAction()
         self.itemDropped.emit(view_id, len(self._item_ids))
 
