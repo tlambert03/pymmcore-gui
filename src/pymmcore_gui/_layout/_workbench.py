@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from pymmcore_gui._qt.QtCore import Qt, QTimer, Signal
+from pymmcore_gui._qt.QtCore import Qt, Signal
 from pymmcore_gui._qt.QtGui import QAction, QIcon, QPalette
 from pymmcore_gui._qt.QtWidgets import (
     QHBoxLayout,
@@ -378,13 +378,6 @@ class WorkbenchWidget(QWidget):
         *before* the target, subtract 1 from the target to compensate
         for the shift that the remove step will cause.
 
-        The actual registry mutation is deferred via
-        ``QTimer.singleShot(0, ...)`` so it runs *after*
-        ``QDrag.exec`` has fully unwound. Mutating the drag source
-        widget synchronously inside ``dropEvent`` corrupts its state
-        because Qt's drag/drop framework still holds references to
-        the pre-drop layout.
-
         Silently ignores moves the registry refuses (``can_move=False``,
         unknown id) so a bad drag is a no-op rather than a crash.
         """
@@ -410,15 +403,12 @@ class WorkbenchWidget(QWidget):
             if 0 <= old_index < index:
                 adjusted_index = index - 1
 
-        def _apply() -> None:
-            try:
-                self._registry.move_view_to_location(
-                    view_id, target_loc, index=adjusted_index
-                )
-            except (KeyError, PermissionError):
-                pass
-
-        QTimer.singleShot(0, _apply)
+        try:
+            self._registry.move_view_to_location(
+                view_id, target_loc, index=adjusted_index
+            )
+        except (KeyError, PermissionError):
+            pass
 
     def toggleLeftSidebar(self) -> None:
         self._toggle_container(self._left_sidebar)

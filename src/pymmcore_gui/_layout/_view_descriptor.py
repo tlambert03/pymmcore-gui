@@ -71,9 +71,8 @@ class ViewDescriptor(BaseModel):
     default_location: ViewContainerLocation = ViewContainerLocation.LEFT_SIDEBAR
     """Container this view belongs to when first registered.
 
-    The user may later move it; the current location is tracked by the registry. irect
-    analogue — containers are registered separately and views are attached to them by
-    id.
+    The user may later move the view to another container; the current
+    (mutable) location is tracked by :class:`ViewRegistry`, not here.
     """
 
     order: int = 0
