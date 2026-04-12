@@ -540,10 +540,10 @@ class WorkbenchWidget(QWidget):
             if not w.isVisible():
                 continue
             size = splitter_size(w)
-            if size == 0 and container.activityBar.activeItem is not None:
+            if size == 0 and container.activityBar.activeItem() is not None:
                 container.deselect()
                 setattr(self, flag_attr, True)
-            elif size > 0 and container.activityBar.activeItem is None:
+            elif size > 0 and container.activityBar.activeItem() is None:
                 container.restoreFromDrag()
                 setattr(self, flag_attr, False)
         self.visibilityChanged.emit()
@@ -622,7 +622,7 @@ class WorkbenchWidget(QWidget):
     def _toggle_container(self, container: PaneContainer) -> None:
         """Toggle a container, transferring space to/from the editor."""
         if container.isCollapsed:
-            active = container.activityBar.activeItem
+            active = container.activityBar.activeItem()
             if active:
                 self._restore_container(container, active)
             else:

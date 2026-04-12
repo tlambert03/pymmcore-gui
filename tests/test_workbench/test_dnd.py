@@ -1,4 +1,4 @@
-"""DnD tests for ActivityBar and NavigationBarAdapter.
+"""DnD tests for ItemBar (vertical and horizontal) inside the workbench.
 
 These tests exercise the drop handlers by building a QDropEvent
 directly and calling ``dropEvent()`` on it, bypassing Qt's native
@@ -13,7 +13,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from pymmcore_gui._layout import (
-    NavigationBarAdapter,
+    ItemBar,
     ViewContainerLocation,
     ViewDescriptor,
 )
@@ -30,9 +30,7 @@ from pymmcore_gui._qt.QtGui import (
     QDragEnterEvent,
     QDragLeaveEvent,
     QDropEvent,
-    QMouseEvent,
 )
-from pymmcore_gui._qt.QtWidgets import QApplication
 
 from ._helpers import (
     _dnd_workbench,
@@ -47,14 +45,40 @@ if TYPE_CHECKING:
 L = ViewContainerLocation
 
 
-class TestActivityBarDrop:
+# ---- helpers --------------------------------------------------------------
+
+
+def _drop_pos_for_index(bar: ItemBar, index: int) -> tuple[int, int]:
+    """Return a (x, y) tuple inside item *index*'s rect on *bar*.
+
+    Used to drop "above" / "into the front of" the item at that index.
+    Drops in the top/left half of an item resolve to insertion *before*
+    that item via ItemBar's center-of-rect midpoint test.
+    """
+    rect = bar.itemRect(index)
+    if bar.orientation() == Qt.Orientation.Vertical:
+        return (rect.center().x(), rect.y() + 1)
+    return (rect.x() + 1, rect.center().y())
+
+
+def _drop_pos_after_last(bar: ItemBar) -> tuple[int, int]:
+    """Return a (x, y) tuple past the last item along the primary axis."""
+    if not bar.itemIds():
+        return (0, 0)
+    last = bar.itemRect(len(bar.itemIds()) - 1)
+    if bar.orientation() == Qt.Orientation.Vertical:
+        return (last.center().x(), last.y() + last.height() + 10)
+    return (last.x() + last.width() + 10, last.center().y())
+
+
+# ---- vertical bar (sidebar) drops -----------------------------------------
+
+
+class TestVerticalBarDrop:
     def test_drop_different_container_at_front(self, qtbot: QtBot) -> None:
         wb = _dnd_workbench(qtbot)
         ab = wb.leftSidebar.activityBar
-        first_rect = next(iter(ab._buttons.values())).geometry()
-        drop_pos = (first_rect.center().x(), first_rect.y() + 1)
-
-        ab.dropEvent(_make_drop_event("terminal", drop_pos))
+        ab.dropEvent(_make_drop_event("terminal", _drop_pos_for_index(ab, 0)))
         qtbot.wait(10)
 
         assert wb.leftSidebar.viewIds[0] == "terminal"
@@ -64,32 +88,16 @@ class TestActivityBarDrop:
     def test_drop_different_container_at_middle(self, qtbot: QtBot) -> None:
         wb = _dnd_workbench(qtbot)
         ab = wb.leftSidebar.activityBar
-        btns = list(ab._buttons.values())
-        # Drop just above the second button's midpoint → insert at index 1
-        second_rect = btns[1].geometry()
-        drop_pos = (second_rect.center().x(), second_rect.y() + 1)
-
-        ab.dropEvent(_make_drop_event("terminal", drop_pos))
+        ab.dropEvent(_make_drop_event("terminal", _drop_pos_for_index(ab, 1)))
         qtbot.wait(10)
 
-        assert wb.leftSidebar.viewIds == [
-            "explorer",
-            "terminal",
-            "search",
-            "debug",
-        ]
+        assert wb.leftSidebar.viewIds == ["explorer", "terminal", "search", "debug"]
         assert wb.registry.get_view_location("terminal") == L.LEFT_SIDEBAR
 
     def test_drop_different_container_at_end(self, qtbot: QtBot) -> None:
         wb = _dnd_workbench(qtbot)
         ab = wb.leftSidebar.activityBar
-        last_rect = list(ab._buttons.values())[-1].geometry()
-        drop_pos = (
-            last_rect.center().x(),
-            last_rect.y() + last_rect.height() + 10,
-        )
-
-        ab.dropEvent(_make_drop_event("terminal", drop_pos))
+        ab.dropEvent(_make_drop_event("terminal", _drop_pos_after_last(ab)))
         qtbot.wait(10)
 
         assert wb.leftSidebar.viewIds[-1] == "terminal"
@@ -97,12 +105,8 @@ class TestActivityBarDrop:
     def test_reorder_within_same_container(self, qtbot: QtBot) -> None:
         wb = _dnd_workbench(qtbot)
         ab = wb.leftSidebar.activityBar
-        # Drop "debug" (currently at index 2) above "search" (index 1)
-        btns = list(ab._buttons.values())
-        search_rect = btns[1].geometry()
-        drop_pos = (search_rect.center().x(), search_rect.y() + 1)
-
-        ab.dropEvent(_make_drop_event("debug", drop_pos))
+        # Drop "debug" (index 2) above "search" (index 1)
+        ab.dropEvent(_make_drop_event("debug", _drop_pos_for_index(ab, 1)))
         qtbot.wait(10)
 
         assert wb.leftSidebar.viewIds == ["explorer", "debug", "search"]
@@ -121,13 +125,9 @@ class TestActivityBarDrop:
         wb = _dnd_workbench(qtbot)
         ab = wb.leftSidebar.activityBar
         # Start: [explorer, search, debug]
-        # Drop explorer (index 0) between search (index 1) and debug
-        # (index 2). The drop indicator reports visual gap index 2.
-        btns = list(ab._buttons.values())
-        debug_rect = btns[2].geometry()
-        drop_pos = (debug_rect.center().x(), debug_rect.y() + 1)
-
-        ab.dropEvent(_make_drop_event("explorer", drop_pos))
+        # Drop explorer (index 0) on the top of debug (index 2). The
+        # drop indicator reports visual gap index 2.
+        ab.dropEvent(_make_drop_event("explorer", _drop_pos_for_index(ab, 2)))
         qtbot.wait(10)
 
         # Explorer must land BETWEEN search and debug, not after.
@@ -148,6 +148,7 @@ class TestActivityBarDrop:
             Qt.KeyboardModifier.NoModifier,
             QEvent.Type.Drop,
         )
+        evt._keep_alive = mime
         ab.dropEvent(evt)
         qtbot.wait(10)
 
@@ -178,10 +179,7 @@ class TestActivityBarDrop:
             )
         )
         ab = wb.leftSidebar.activityBar
-        first_rect = next(iter(ab._buttons.values())).geometry()
-        drop_pos = (first_rect.center().x(), first_rect.y() + 1)
-
-        ab.dropEvent(_make_drop_event("pinned", drop_pos))
+        ab.dropEvent(_make_drop_event("pinned", _drop_pos_for_index(ab, 0)))
         qtbot.wait(10)
 
         # Pinned view stays in its original container.
@@ -194,42 +192,38 @@ class TestActivityBarDrop:
         # Activate console in the bottom panel, then drag terminal out.
         wb.bottomPanel.activityBar.setActive("console")
         ab = wb.leftSidebar.activityBar
-        first_rect = next(iter(ab._buttons.values())).geometry()
-        drop_pos = (first_rect.center().x(), first_rect.y() + 1)
-
-        ab.dropEvent(_make_drop_event("terminal", drop_pos))
+        ab.dropEvent(_make_drop_event("terminal", _drop_pos_for_index(ab, 0)))
         qtbot.wait(10)
 
         # Console should still be active in the panel.
-        assert wb.bottomPanel.activityBar.activeItem == "console"
+        assert wb.bottomPanel.activityBar.activeItem() == "console"
 
     def test_compute_insert_index_vertical(self, qtbot: QtBot) -> None:
         """Unit test of the hit-test math in isolation."""
         wb = _dnd_workbench(qtbot)
         ab = wb.leftSidebar.activityBar
-        btns = list(ab._buttons.values())
-        x_center = btns[0].geometry().center().x()
+        rect0 = ab.itemRect(0)
+        rect_last = ab.itemRect(len(ab.itemIds()) - 1)
+        x_center = rect0.center().x()
 
         # Above all items → index 0
         assert ab._compute_insert_index(QPoint(x_center, -5)) == 0
         # Top of first item (above its midpoint) → index 0
-        first_top = btns[0].geometry().y() + 1
-        assert ab._compute_insert_index(QPoint(x_center, first_top)) == 0
+        assert ab._compute_insert_index(QPoint(x_center, rect0.y() + 1)) == 0
         # Bottom half of first → index 1
-        first_bottom = btns[0].geometry().y() + btns[0].geometry().height() - 1
-        assert ab._compute_insert_index(QPoint(x_center, first_bottom)) == 1
+        assert (
+            ab._compute_insert_index(QPoint(x_center, rect0.y() + rect0.height() - 1))
+            == 1
+        )
         # Past everything → count
-        past = btns[-1].geometry().y() + btns[-1].geometry().height() + 100
-        assert ab._compute_insert_index(QPoint(x_center, past)) == len(btns)
+        assert ab._compute_insert_index(
+            QPoint(x_center, rect_last.y() + rect_last.height() + 100)
+        ) == len(ab.itemIds())
 
     def test_reorder_of_active_view_keeps_stack_in_sync(self, qtbot: QtBot) -> None:
         """Regression guard: reordering the currently-active view via
         drop must not desynchronize the QStackedWidget's currentWidget
-        from the ActivityBar's activeItem.
-
-        Root cause: ``QStackedWidget.removeWidget(w)`` picks a new
-        currentWidget if *w* was the current one. ``PaneContainer.
-        reorderView`` must restore it after re-inserting.
+        from the bar's activeItem.
         """
         wb = _dnd_workbench(qtbot)
         wb.leftSidebar.activityBar.setActive("explorer")
@@ -238,12 +232,10 @@ class TestActivityBarDrop:
             is wb.leftSidebar._views["explorer"].widget
         )
 
-        # Reorder explorer to the end via the registry (same path DnD uses)
         wb.registry.reorder_view("explorer", 2)
 
-        assert wb.leftSidebar.activityBar.activeItem == "explorer"
+        assert wb.leftSidebar.activityBar.activeItem() == "explorer"
         assert wb.leftSidebar.viewIds == ["search", "debug", "explorer"]
-        # The crucial assertion: stack and bar must still agree.
         assert (
             wb.leftSidebar.stack.currentWidget()
             is wb.leftSidebar._views["explorer"].widget
@@ -261,14 +253,11 @@ class TestActivityBarDrop:
 
         wb.registry.reorder_view("explorer", 2)
 
-        # search is still the current view — its widget identity is
-        # stable across the reorder.
-        assert wb.leftSidebar.activityBar.activeItem == "search"
+        assert wb.leftSidebar.activityBar.activeItem() == "search"
         assert wb.leftSidebar.stack.currentWidget() is search_widget
 
     def test_drop_indicator_visibility_lifecycle(self, qtbot: QtBot) -> None:
-        """Drop indicator should be hidden at rest, visible while a
-        drag is over the bar, and hidden again on leave."""
+        """Drop indicator is hidden at rest, visible during drag, hidden on leave."""
         wb = _dnd_workbench(qtbot)
         ab = wb.leftSidebar.activityBar
         indicator = ab._drop_indicator
@@ -277,9 +266,9 @@ class TestActivityBarDrop:
 
         mime = QMimeData()
         mime.setData(PMM_VIEW_MIME_TYPE, encode_view_id("terminal"))
-        first_btn_center = next(iter(ab._buttons.values())).geometry().center()
+        first_rect = ab.itemRect(0)
         enter = QDragEnterEvent(
-            first_btn_center,
+            first_rect.center(),
             Qt.DropAction.MoveAction,
             mime,
             Qt.MouseButton.LeftButton,
@@ -290,8 +279,7 @@ class TestActivityBarDrop:
         qtbot.wait(10)
         assert indicator.isVisible()
 
-        leave = QDragLeaveEvent()
-        ab.dragLeaveEvent(leave)
+        ab.dragLeaveEvent(QDragLeaveEvent())
         qtbot.wait(10)
         assert not indicator.isVisible()
 
@@ -303,9 +291,9 @@ class TestActivityBarDrop:
 
         mime = QMimeData()
         mime.setData(PMM_VIEW_MIME_TYPE, encode_view_id("terminal"))
-        pos = next(iter(ab._buttons.values())).geometry().center()
+        first_rect = ab.itemRect(0)
         enter = QDragEnterEvent(
-            pos,
+            first_rect.center(),
             Qt.DropAction.MoveAction,
             mime,
             Qt.MouseButton.LeftButton,
@@ -315,7 +303,11 @@ class TestActivityBarDrop:
         ab.dragEnterEvent(enter)
         assert indicator.isVisible()
 
-        ab.dropEvent(_make_drop_event("terminal", (pos.x(), pos.y())))
+        ab.dropEvent(
+            _make_drop_event(
+                "terminal", (first_rect.center().x(), first_rect.center().y())
+            )
+        )
         qtbot.wait(10)
         assert not indicator.isVisible()
 
@@ -323,109 +315,55 @@ class TestActivityBarDrop:
         """Indicator position at index=0, index=count, and middle."""
         wb = _dnd_workbench(qtbot)
         ab = wb.leftSidebar.activityBar
-        btns = list(ab._buttons.values())
-        assert len(btns) >= 3
+        count = len(ab.itemIds())
+        assert count >= 3
 
-        pos_0 = ab._drop_indicator_position(0)
-        assert pos_0 == btns[0].geometry().y()
+        rect0 = ab.itemRect(0)
+        rect1 = ab.itemRect(1)
+        rect_last = ab.itemRect(count - 1)
 
-        pos_end = ab._drop_indicator_position(len(btns))
-        last = btns[-1].geometry()
-        assert pos_end == last.y() + last.height()
+        assert ab._drop_indicator_position(0) == rect0.y()
+        assert ab._drop_indicator_position(count) == rect_last.y() + rect_last.height()
 
         pos_1 = ab._drop_indicator_position(1)
-        assert btns[0].geometry().y() < pos_1
-        assert pos_1 < btns[1].geometry().y() + btns[1].geometry().height()
+        assert rect0.y() < pos_1
+        assert pos_1 < rect1.y() + rect1.height()
 
-    def test_drag_source_eventfilter_survives_button_deletion(
-        self, qtbot: QtBot
-    ) -> None:
-        """Regression guard: during a cross-container drag from the
-        left ActivityBar, the drop fires the signal chain → registry
-        move → source container's ``removeView`` → ``ActivityBar.
-        removeItem(view_id)`` → ``btn.deleteLater()``. When
-        ``_start_drag``'s ``drag.exec`` returns, ``eventFilter`` must
-        not then access or forward the now-deleted button to
-        ``super().eventFilter``.
-
-        Simulated by monkey-patching ``_start_drag`` to remove the
-        pressed button (same net effect as the real drag-drop flow).
-        """
+    def test_drag_source_records_candidate(self, qtbot: QtBot) -> None:
+        """Pressing on an item records a drag candidate; releasing clears it."""
         wb = _dnd_workbench(qtbot)
         ab = wb.leftSidebar.activityBar
-        btn = next(iter(ab._buttons.values()))
-        view_id = btn.objectName()
+        rect1 = ab.itemRect(1)
 
-        def fake_start_drag(vid: str) -> None:
-            # Mimic the real drop chain: remove the item while the
-            # event filter is mid-execution, then return.
-            ab.removeItem(vid)
+        assert ab._drag_candidate_index == -1
 
-        ab._start_drag = fake_start_drag  # type: ignore[method-assign]
-
-        # Simulate a press on the button followed by a move past the
-        # drag threshold. The move's event filter will call _start_drag,
-        # which deletes the button. The event filter must not crash.
-        press = QMouseEvent(
-            QEvent.Type.MouseButtonPress,
-            QPointF(5, 5),
-            QPointF(5, 5),
+        qtbot.mousePress(  # type: ignore[no-untyped-call]
+            ab,
             Qt.MouseButton.LeftButton,
-            Qt.MouseButton.LeftButton,
-            Qt.KeyboardModifier.NoModifier,
+            pos=rect1.center(),
         )
-        ab.eventFilter(btn, press)
-
-        drag_distance = QApplication.startDragDistance() + 5
-        move = QMouseEvent(
-            QEvent.Type.MouseMove,
-            QPointF(5 + drag_distance, 5 + drag_distance),
-            QPointF(5 + drag_distance, 5 + drag_distance),
-            Qt.MouseButton.NoButton,
-            Qt.MouseButton.LeftButton,
-            Qt.KeyboardModifier.NoModifier,
-        )
-        result = ab.eventFilter(btn, move)
         qtbot.wait(10)
-
-        # The move should have been consumed (return True) and the
-        # button must have been removed without raising.
-        assert result is True
-        assert view_id not in ab.itemIds
-
-    def test_drag_source_eventfilter_fires_on_button_press(self, qtbot: QtBot) -> None:
-        """Regression guard for the Qt event-dispatch gotcha: mouse events
-        delivered to a QToolButton child are eaten by the button and never
-        propagate to the parent ActivityBar's mousePressEvent. The fix is
-        an event filter installed on each button; this test verifies it
-        captures the press and records a drag candidate.
-        """
-        wb = _dnd_workbench(qtbot)
-        ab = wb.leftSidebar.activityBar
-        btns = list(ab._buttons.values())
-
-        assert ab._drag_candidate_id is None
-
-        qtbot.mousePress(btns[1], Qt.MouseButton.LeftButton)  # type: ignore[no-untyped-call]
-        qtbot.wait(10)
-        assert ab._drag_candidate_id == btns[1].objectName()
+        assert ab._drag_candidate_index == 1
         assert ab._drag_start_pos is not None
 
-        # Releasing without moving clears the candidate.
-        qtbot.mouseRelease(btns[1], Qt.MouseButton.LeftButton)  # type: ignore[no-untyped-call]
+        qtbot.mouseRelease(  # type: ignore[no-untyped-call]
+            ab,
+            Qt.MouseButton.LeftButton,
+            pos=rect1.center(),
+        )
         qtbot.wait(10)
-        assert ab._drag_candidate_id is None
+        assert ab._drag_candidate_index == -1
 
 
-class TestNavigationBarDrop:
+# ---- horizontal bar (bottom panel) drops ----------------------------------
+
+
+class TestHorizontalBarDrop:
     def test_drop_onto_bottom_panel_from_left_sidebar(self, qtbot: QtBot) -> None:
-        """Drop a view from the left sidebar onto the bottom panel via
-        the NavigationBarAdapter's Phase B drop handler."""
+        """Drop a view from the left sidebar onto the bottom panel."""
         wb = _dnd_workbench(qtbot)
-        nav = wb.bottomPanel.activityBar._nav  # inner _DraggableNavigationBar
-
-        # Drop explorer at the very front of the panel bar
-        nav.dropEvent(_make_drop_event("explorer", (0, 10)))
+        bar = wb.bottomPanel.activityBar
+        bar.dropEvent(_make_drop_event("explorer", (0, 10)))
         qtbot.wait(10)
 
         assert "explorer" in wb.bottomPanel.viewIds
@@ -436,15 +374,15 @@ class TestNavigationBarDrop:
     def test_drop_onto_bottom_panel_at_end(self, qtbot: QtBot) -> None:
         """Drop past all items → append to the bottom panel."""
         wb = _dnd_workbench(qtbot)
-        nav = wb.bottomPanel.activityBar._nav
-        nav.dropEvent(_make_drop_event("explorer", (10000, 10)))
+        bar = wb.bottomPanel.activityBar
+        bar.dropEvent(_make_drop_event("explorer", (10000, 10)))
         qtbot.wait(10)
 
         assert wb.bottomPanel.viewIds[-1] == "explorer"
 
-    def test_drop_unknown_mime_on_navigation_bar_is_ignored(self, qtbot: QtBot) -> None:
+    def test_drop_unknown_mime_is_ignored(self, qtbot: QtBot) -> None:
         wb = _dnd_workbench(qtbot)
-        nav = wb.bottomPanel.activityBar._nav
+        bar = wb.bottomPanel.activityBar
         before = list(wb.bottomPanel.viewIds)
 
         mime = QMimeData()
@@ -458,74 +396,58 @@ class TestNavigationBarDrop:
             QEvent.Type.Drop,
         )
         evt._keep_alive = mime
-        nav.dropEvent(evt)
+        bar.dropEvent(evt)
         qtbot.wait(10)
 
         assert wb.bottomPanel.viewIds == before
 
-    def test_navigation_bar_drag_source_records_candidate(self, qtbot: QtBot) -> None:
-        """The mouse-press override on _DraggableNavigationBar records
-        a drag candidate based on itemAtPos."""
+    def test_drag_source_records_candidate(self, qtbot: QtBot) -> None:
+        """The mouse-press handler records a drag candidate via itemAt."""
         wb = _dnd_workbench(qtbot)
-        nav = wb.bottomPanel.activityBar._nav
-
-        # Find a point well inside the second item's rect via the
-        # itemAtPos scan — more robust than hardcoding pixels.
-        mid_y = nav.height() // 2
+        bar = wb.bottomPanel.activityBar
         target_idx = 1  # second item = "console"
-        target_pos = None
-        for x in range(nav.width()):
-            if nav.itemAtPos(QPoint(x, mid_y)) == target_idx:
-                target_pos = QPoint(x + 2, mid_y)
-                break
-        assert target_pos is not None, "could not locate item 1 on the bar"
+        target_rect = bar.itemRect(target_idx)
 
-        assert nav._drag_candidate_index == -1
+        assert bar._drag_candidate_index == -1
 
-        qtbot.mousePress(nav, Qt.MouseButton.LeftButton, pos=target_pos)  # type: ignore[no-untyped-call]
+        qtbot.mousePress(  # type: ignore[no-untyped-call]
+            bar, Qt.MouseButton.LeftButton, pos=target_rect.center()
+        )
         qtbot.wait(10)
-        assert nav._drag_candidate_index == target_idx
+        assert bar._drag_candidate_index == target_idx
 
-        qtbot.mouseRelease(nav, Qt.MouseButton.LeftButton, pos=target_pos)  # type: ignore[no-untyped-call]
+        qtbot.mouseRelease(  # type: ignore[no-untyped-call]
+            bar, Qt.MouseButton.LeftButton, pos=target_rect.center()
+        )
         qtbot.wait(10)
-        assert nav._drag_candidate_index == -1
+        assert bar._drag_candidate_index == -1
 
     def test_cross_container_move_clears_source_ghost(self, qtbot: QtBot) -> None:
-        """Issue 1 regression: after dragging the active view out of a
-        container, the source container's stack must not still show
-        the ghost of a sibling widget.
+        """After dragging the active view out of a container, the source
+        container's stack must not still show the ghost of a sibling.
         """
         wb = _dnd_workbench(qtbot)
-        # Activate "terminal" in the bottom panel — it becomes current.
         wb.bottomPanel.activityBar.setActive("terminal")
         terminal_widget = wb.bottomPanel._views["terminal"].widget
         assert wb.bottomPanel.stack.currentWidget() is terminal_widget
-        assert wb.bottomPanel.activityBar.activeItem == "terminal"
+        assert wb.bottomPanel.activityBar.activeItem() == "terminal"
 
-        # Drop terminal onto the left sidebar → moves it out of the panel.
         ab = wb.leftSidebar.activityBar
-        first_rect = next(iter(ab._buttons.values())).geometry()
-        drop_pos = (first_rect.center().x(), first_rect.y() + 1)
-        ab.dropEvent(_make_drop_event("terminal", drop_pos))
+        ab.dropEvent(_make_drop_event("terminal", _drop_pos_for_index(ab, 0)))
         qtbot.wait(10)
 
-        # Panel should now contain only "console", and crucially:
-        #   activeItem == "console" (not None)
-        #   stack.currentWidget() == console's widget
         assert wb.bottomPanel.viewIds == ["console"]
-        assert wb.bottomPanel.activityBar.activeItem == "console"
+        assert wb.bottomPanel.activityBar.activeItem() == "console"
         console_widget = wb.bottomPanel._views["console"].widget
         assert wb.bottomPanel.stack.currentWidget() is console_widget
 
     def test_cross_container_move_empty_source_leaves_no_active(
         self, qtbot: QtBot
     ) -> None:
-        """Draining a container must not crash trying to auto-activate
-        a non-existent sibling."""
+        """Draining a container must not crash auto-activating siblings."""
         wb = _dnd_workbench(qtbot)
         ab = wb.leftSidebar.activityBar
-        first_rect = next(iter(ab._buttons.values())).geometry()
-        drop_pos = (first_rect.center().x(), first_rect.y() + 1)
+        drop_pos = _drop_pos_for_index(ab, 0)
 
         ab.dropEvent(_make_drop_event("terminal", drop_pos))
         qtbot.wait(10)
@@ -533,12 +455,11 @@ class TestNavigationBarDrop:
         qtbot.wait(10)
 
         assert wb.bottomPanel.viewIds == []
-        assert wb.bottomPanel.activityBar.activeItem is None
+        assert wb.bottomPanel.activityBar.activeItem() is None
 
     def test_drop_on_content_area_appends_to_container(self, qtbot: QtBot) -> None:
-        """Dropping on the big content widget under the tab bar
-        should count as "drop into this container, at the end".
-        Fixes the 'drop hitbox too small' complaint.
+        """Dropping on the big content widget under the tab bar should
+        count as 'drop into this container, at the end'.
         """
         wb = _dnd_workbench(qtbot)
         stack = wb.bottomPanel.stack
@@ -551,9 +472,8 @@ class TestNavigationBarDrop:
         assert wb.registry.get_view_location("explorer") == L.PANEL
 
     def test_drop_on_sidebar_stack_appends_to_left_sidebar(self, qtbot: QtBot) -> None:
-        """Same as test_drop_on_content_area_appends_to_container
-        but for the ActivityBar/side position — the left sidebar's
-        stack widget should also accept drops.
+        """Same as test_drop_on_content_area_appends_to_container but
+        for the left sidebar's stack widget.
         """
         wb = _dnd_workbench(qtbot)
         stack = wb.leftSidebar.stack
@@ -565,19 +485,17 @@ class TestNavigationBarDrop:
         assert wb.leftSidebar.viewIds == [*before, "terminal"]
         assert wb.registry.get_view_location("terminal") == L.LEFT_SIDEBAR
 
-    def test_nav_drop_indicator_visibility(self, qtbot: QtBot) -> None:
-        """Indicator on the inner nav bar shows/hides across the drag
-        lifecycle; at rest it's hidden."""
+    def test_drop_indicator_visibility(self, qtbot: QtBot) -> None:
+        """Indicator on the horizontal bar shows/hides across drag lifecycle."""
         wb = _dnd_workbench(qtbot)
-        nav = wb.bottomPanel.activityBar._nav
-        indicator = nav._drop_indicator
+        bar = wb.bottomPanel.activityBar
+        indicator = bar._drop_indicator
 
         assert not indicator.isVisible()
 
         mime = QMimeData()
         mime.setData(PMM_VIEW_MIME_TYPE, encode_view_id("explorer"))
-        # Drop cursor roughly in the middle of the first item
-        first_rect = nav.itemRect(0)
+        first_rect = bar.itemRect(0)
         enter = QDragEnterEvent(
             first_rect.center(),
             Qt.DropAction.MoveAction,
@@ -586,55 +504,19 @@ class TestNavigationBarDrop:
             Qt.KeyboardModifier.NoModifier,
         )
         enter._keep_alive = mime
-        nav.dragEnterEvent(enter)
+        bar.dragEnterEvent(enter)
         qtbot.wait(10)
         assert indicator.isVisible()
 
-        nav.dragLeaveEvent(QDragLeaveEvent())
+        bar.dragLeaveEvent(QDragLeaveEvent())
         qtbot.wait(10)
         assert not indicator.isVisible()
 
-    def test_nav_drop_indicator_stretch_area_at_end(self, qtbot: QtBot) -> None:
-        """Drag entering the adapter's stretch area (outside the inner
-        nav) should show the indicator on the inner nav at the very
-        right edge — the position where an append would land."""
-        wb = _dnd_workbench(qtbot)
-        adapter = wb.bottomPanel.activityBar
-        assert isinstance(adapter, NavigationBarAdapter)
-        nav = adapter._nav
-        indicator = nav._drop_indicator
-
-        mime = QMimeData()
-        mime.setData(PMM_VIEW_MIME_TYPE, encode_view_id("explorer"))
-        # A position in the adapter (stretch area) — doesn't have to
-        # match the inner nav's geometry; the adapter's handler always
-        # passes itemCount() to showDropIndicatorAt.
-        enter = QDragEnterEvent(
-            QPoint(nav.width() + 20, 10),
-            Qt.DropAction.MoveAction,
-            mime,
-            Qt.MouseButton.LeftButton,
-            Qt.KeyboardModifier.NoModifier,
-        )
-        enter._keep_alive = mime
-        adapter.dragEnterEvent(enter)
-        qtbot.wait(10)
-
-        assert indicator.isVisible()
-        # The indicator was positioned at the end-of-items x coordinate
-        end_x = nav._drop_indicator_x(nav.itemCount())
-        half = indicator.THICKNESS // 2
-        assert indicator.geometry().x() == end_x - half
-
-    def test_nav_reorder_forward_gap_compensates(self, qtbot: QtBot) -> None:
-        """Same bug as test_reorder_forward_gap_compensates but on
-        the horizontal NavigationBar path. The drop handler's
-        pre-move → post-move index conversion must also work when
-        the target container's bar is a NavigationBarAdapter.
+    def test_reorder_forward_gap_compensates(self, qtbot: QtBot) -> None:
+        """Same regression guard as the vertical case, but on the
+        horizontal bar path.
         """
         wb = _dnd_workbench(qtbot)
-        # Add a third panel view so we have [terminal, console, output]
-        # and can drop terminal between console and output.
         wb.registerView(
             ViewDescriptor(
                 id="output",
@@ -647,171 +529,107 @@ class TestNavigationBarDrop:
         qtbot.wait(10)
         assert wb.bottomPanel.viewIds == ["terminal", "console", "output"]
 
-        nav = wb.bottomPanel.activityBar._nav
-        # Find a point inside the "output" item (index 2) that's in
-        # its left half — the drop indicator will report gap index 2.
-        output_rect = nav.itemRect(2)
-        drop_x = output_rect.x() + 2  # just inside, left half
-        drop_pos = (drop_x, nav.height() // 2)
-
-        nav.dropEvent(_make_drop_event("terminal", drop_pos))
+        bar = wb.bottomPanel.activityBar
+        # Drop terminal (idx 0) on the left half of "output" (idx 2).
+        bar.dropEvent(_make_drop_event("terminal", _drop_pos_for_index(bar, 2)))
         qtbot.wait(50)
 
-        # Terminal should land between console and output, not after.
         assert wb.bottomPanel.viewIds == ["console", "terminal", "output"]
 
-    def test_drop_on_nav_adapter_stretch_area_appends(self, qtbot: QtBot) -> None:
-        """Regression for the dead zone to the right of the last tab.
-
-        The inner ``_DraggableNavigationBar`` only covers the width
-        of its items; the empty stretch region inside the
-        ``NavigationBarAdapter`` is a separate area. Drops there
-        must still work (append to end).
-        """
+    def test_display_mode_default_is_text_only(self, qtbot: QtBot) -> None:
+        """Horizontal bars default to TEXT_ONLY."""
         wb = _dnd_workbench(qtbot)
-        adapter = wb.bottomPanel.activityBar
-        assert isinstance(adapter, NavigationBarAdapter)
-        before = list(wb.bottomPanel.viewIds)
+        bar = wb.bottomPanel.activityBar
+        assert isinstance(bar, ItemBar)
+        assert bar.displayMode() == NavDisplayMode.TEXT_ONLY
+        # Effective rendering: text shown, icon hidden.
+        item = bar._items[0]
+        assert bar._effective_text(item) == "Terminal"
+        assert bar._effective_icon(item).isNull()
 
-        # Fire the drop on the *adapter* itself (not its inner bar).
-        # In a live GUI, Qt dispatches to the adapter when the cursor
-        # is in the stretch region because the inner bar isn't under
-        # the cursor there.
-        adapter.dropEvent(_make_drop_event("explorer", (0, 0)))
-        qtbot.wait(50)
-
-        assert wb.bottomPanel.viewIds == [*before, "explorer"]
-        assert wb.registry.get_view_location("explorer") == L.PANEL
-
-    def test_nav_display_mode_default_is_text_only(self, qtbot: QtBot) -> None:
-        """Horizontal (top/bottom) nav bars default to TEXT_ONLY —
-        labels are the primary affordance in a tab strip."""
+    def test_display_mode_switches(self, qtbot: QtBot) -> None:
+        """Cycling display mode changes what _effective_text/icon returns."""
         wb = _dnd_workbench(qtbot)
-        nav_adapter = wb.bottomPanel.activityBar
-        assert isinstance(nav_adapter, NavigationBarAdapter)
-        assert nav_adapter.displayMode == NavDisplayMode.TEXT_ONLY
-        inner = nav_adapter._nav
-        assert inner.getItemText(0) == "Terminal"
-        assert inner.getItemIcon(0).isNull()
+        bar = wb.bottomPanel.activityBar
+        assert isinstance(bar, ItemBar)
 
-    def test_nav_display_mode_switches(self, qtbot: QtBot) -> None:
-        """Cycling display mode rewrites every slot's text/icon.
+        bar.setDisplayMode(NavDisplayMode.BOTH)
+        item = bar._items[0]
+        assert bar._effective_text(item) == "Terminal"
+        assert not bar._effective_icon(item).isNull()
 
-        Uses the cached metadata as the source of truth so the change
-        is reversible across all three modes.
-        """
-        wb = _dnd_workbench(qtbot)
-        nav_adapter = wb.bottomPanel.activityBar
-        assert isinstance(nav_adapter, NavigationBarAdapter)
-        inner = nav_adapter._nav
+        bar.setDisplayMode(NavDisplayMode.ICONS_ONLY)
+        assert bar._effective_text(item) == ""
+        assert not bar._effective_icon(item).isNull()
 
-        # Start from BOTH explicitly so the test is independent of
-        # whatever default PaneContainer chooses.
-        nav_adapter.setDisplayMode(NavDisplayMode.BOTH)
-        assert inner.getItemText(0) == "Terminal"
-        assert not inner.getItemIcon(0).isNull()
+        bar.setDisplayMode(NavDisplayMode.TEXT_ONLY)
+        assert bar._effective_text(item) == "Terminal"
+        assert bar._effective_icon(item).isNull()
 
-        # Icons only: text cleared, icon preserved
-        nav_adapter.setDisplayMode(NavDisplayMode.ICONS_ONLY)
-        assert inner.getItemText(0) == ""
-        assert not inner.getItemIcon(0).isNull()
+        bar.setDisplayMode(NavDisplayMode.BOTH)
+        assert bar._effective_text(item) == "Terminal"
+        assert not bar._effective_icon(item).isNull()
 
-        # Text only: text preserved, icon cleared
-        nav_adapter.setDisplayMode(NavDisplayMode.TEXT_ONLY)
-        assert inner.getItemText(0) == "Terminal"
-        assert inner.getItemIcon(0).isNull()
-
-        # Flip back to both: cache is the source of truth, fully reversible
-        nav_adapter.setDisplayMode(NavDisplayMode.BOTH)
-        assert inner.getItemText(0) == "Terminal"
-        assert not inner.getItemIcon(0).isNull()
-
-    def test_nav_display_mode_survives_bar_swap(self, qtbot: QtBot) -> None:
-        """Toggling the activity bar position destroys the nav
-        adapter and creates a fresh one. The container stores the
-        display mode preference so it's reapplied on recreation.
+    def test_display_mode_survives_bar_swap(self, qtbot: QtBot) -> None:
+        """Toggling the activity bar position destroys the bar and creates
+        a fresh one. The container stores the display mode preference so
+        it's reapplied on recreation.
         """
         wb = _dnd_workbench(qtbot)
         panel = wb.bottomPanel
-        nav_adapter = panel.activityBar
-        assert isinstance(nav_adapter, NavigationBarAdapter)
+        bar = panel.activityBar
+        assert isinstance(bar, ItemBar)
 
-        nav_adapter.setDisplayMode(NavDisplayMode.ICONS_ONLY)
+        bar.setDisplayMode(NavDisplayMode.ICONS_ONLY)
         panel._nav_display_mode = NavDisplayMode.ICONS_ONLY
 
-        # Swap to hidden and back to top. The new NavigationBarAdapter
-        # should apply the remembered display mode.
+        # Swap to hidden and back to top. The new bar should remember.
         panel.setAbPosition(ActivityBarPosition.HIDDEN)
         panel.arrange()
         panel.setAbPosition(ActivityBarPosition.TOP)
         panel.arrange()
 
-        new_adapter = panel.activityBar
-        assert isinstance(new_adapter, NavigationBarAdapter)
-        assert new_adapter.displayMode == NavDisplayMode.ICONS_ONLY
-        inner = new_adapter._nav
-        if inner.itemCount() > 0:
-            assert inner.getItemText(0) == ""
-            assert not inner.getItemIcon(0).isNull()
+        new_bar = panel.activityBar
+        assert isinstance(new_bar, ItemBar)
+        assert new_bar.displayMode() == NavDisplayMode.ICONS_ONLY
+        if new_bar.itemIds():
+            item = new_bar._items[0]
+            assert new_bar._effective_text(item) == ""
+            assert not new_bar._effective_icon(item).isNull()
 
-    def test_click_to_switch_view_on_nav_bar(self, qtbot: QtBot) -> None:
-        """Regression guard for the click-to-switch bug.
+    def test_click_to_switch_view_on_horizontal_bar(self, qtbot: QtBot) -> None:
+        """Click on a tab item should switch the active view.
 
-        When ``_DraggableNavigationBar`` overrides ``mousePressEvent``
-        and ``mouseReleaseEvent`` and calls ``super()``, those super
-        calls must dispatch through to qlementine's C++ implementations
-        in ``AbstractItemListWidget`` — not silently walk the Python
-        MRO up to ``QWidget``'s no-op defaults. The dispatch only
-        works if those virtuals are declared in
-        ``AbstractItemListWidget.sip``.
+        With the hand-rolled ItemBar this exercises pure-Python event
+        dispatch (mousePress + mouseRelease on a known item rect).
         """
         wb = _dnd_workbench(qtbot)
-        nav = wb.bottomPanel.activityBar._nav
+        bar = wb.bottomPanel.activityBar
+        bar.setActive("terminal")
+        assert bar.activeItem() == "terminal"
 
-        assert wb.bottomPanel.activityBar.activeItem == "terminal"
-
-        # Find a point inside the "console" item (index 1)
-        mid_y = nav.height() // 2
-        target_pos = None
-        for x in range(nav.width()):
-            if nav.itemAtPos(QPoint(x, mid_y)) == 1:
-                target_pos = QPoint(x + 5, mid_y)
-                break
-        assert target_pos is not None
-
-        qtbot.mouseClick(nav, Qt.MouseButton.LeftButton, pos=target_pos)  # type: ignore[no-untyped-call]
+        target_rect = bar.itemRect(1)  # console
+        qtbot.mouseClick(  # type: ignore[no-untyped-call]
+            bar, Qt.MouseButton.LeftButton, pos=target_rect.center()
+        )
         qtbot.wait(10)
 
-        assert wb.bottomPanel.activityBar.activeItem == "console"
-        assert nav.currentIndex() == 1
+        assert bar.activeItem() == "console"
 
-    def test_compute_insert_index_on_nav_bar(self, qtbot: QtBot) -> None:
-        """Unit test the NavigationBar insertion-index logic."""
+    def test_compute_insert_index_horizontal(self, qtbot: QtBot) -> None:
+        """Unit test the horizontal bar's insertion-index logic."""
         wb = _dnd_workbench(qtbot)
-        nav = wb.bottomPanel.activityBar._nav
+        bar = wb.bottomPanel.activityBar
+        rect0 = bar.itemRect(0)
+        mid_y = rect0.center().y()
 
         # Before all items
-        assert nav._compute_insert_index(QPoint(-5, nav.height() // 2)) == 0
+        assert bar._compute_insert_index(QPoint(-5, mid_y)) == 0
         # Past all items → count
-        past = nav._compute_insert_index(QPoint(10000, nav.height() // 2))
-        assert past == nav.itemCount()
-
-        # Find first item's left and right edges
-        mid_y = nav.height() // 2
-        left_x = None
-        for x in range(nav.width()):
-            if nav.itemAtPos(QPoint(x, mid_y)) == 0:
-                left_x = x
-                break
-        assert left_x is not None
-        right_x = nav.width() - 1
-        for x in range(left_x, nav.width()):
-            if nav.itemAtPos(QPoint(x, mid_y)) != 0:
-                right_x = x - 1
-                break
-        mid_x = (left_x + right_x) // 2
-
+        assert bar._compute_insert_index(QPoint(10000, mid_y)) == len(bar.itemIds())
         # Left half of item 0 → insert at 0 (before it)
-        assert nav._compute_insert_index(QPoint(mid_x - 1, mid_y)) == 0
+        assert bar._compute_insert_index(QPoint(rect0.x() + 1, mid_y)) == 0
         # Right half of item 0 → insert at 1 (after it)
-        assert nav._compute_insert_index(QPoint(mid_x + 1, mid_y)) == 1
+        assert (
+            bar._compute_insert_index(QPoint(rect0.x() + rect0.width() - 1, mid_y)) == 1
+        )

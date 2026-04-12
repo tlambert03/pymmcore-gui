@@ -14,6 +14,7 @@ from pymmcore_gui._layout import (
     WorkbenchWidget,
     splitter_size,
 )
+from pymmcore_gui._qt.QtCore import Qt
 from pymmcore_gui._qt.QtWidgets import QApplication, QSplitter
 
 from ._helpers import _label, _sidebar_sizes, _test_icon
@@ -28,9 +29,9 @@ TOLERANCE = 4  # pixels — accounts for integer rounding and handle widths
 class TestWorkbenchWidget:
     def test_initial_state(self, workbench: WorkbenchWidget) -> None:
         assert workbench.panelAlignment == PanelAlignment.CENTER
-        assert workbench.leftSidebar.activityBar.activeItem == "explorer"
-        assert workbench.rightSidebar.activityBar.activeItem == "properties"
-        assert workbench.bottomPanel.activityBar.activeItem == "terminal"
+        assert workbench.leftSidebar.activityBar.activeItem() == "explorer"
+        assert workbench.rightSidebar.activityBar.activeItem() == "properties"
+        assert workbench.bottomPanel.activityBar.activeItem() == "terminal"
         assert workbench._root_splitter is not None
 
     @pytest.mark.parametrize("alignment", list(PanelAlignment))
@@ -65,10 +66,10 @@ class TestWorkbenchWidget:
     def test_sidebar_collapse_and_restore(self, workbench: WorkbenchWidget) -> None:
         left = workbench.leftSidebar
         left.collapse()
-        assert left.activityBar.activeItem is None
+        assert left.activityBar.activeItem() is None
 
         left.toggle()
-        assert left.activityBar.activeItem is not None
+        assert left.activityBar.activeItem() is not None
 
     def test_alignment_switch_preserves_leaf_widgets(
         self, workbench: WorkbenchWidget
@@ -107,15 +108,18 @@ class TestWorkbenchWidget:
         w.addView("a", "A", _label, icon=_test_icon(), location=L.LEFT_SIDEBAR)
         w.addView("b", "B", _label, icon=_test_icon(), location=L.RIGHT_SIDEBAR)
         w.addView("c", "C", _label, icon=_test_icon(), location=L.PANEL)
-        assert "a" in w.leftSidebar.activityBar.itemIds
-        assert "b" in w.rightSidebar.activityBar.itemIds
-        assert "c" in w.bottomPanel.activityBar.itemIds
+        assert "a" in w.leftSidebar.activityBar.itemIds()
+        assert "b" in w.rightSidebar.activityBar.itemIds()
+        assert "c" in w.bottomPanel.activityBar.itemIds()
 
-    def test_bottom_panel_uses_navigation_bar(self, workbench: WorkbenchWidget) -> None:
-        from pymmcore_gui._layout import NavigationBarAdapter
+    def test_bottom_panel_uses_horizontal_bar(self, workbench: WorkbenchWidget) -> None:
+        from pymmcore_gui._layout import ItemBar
 
         assert isinstance(workbench.bottomPanel, PaneContainer)
-        assert isinstance(workbench.bottomPanel.activityBar, NavigationBarAdapter)
+        assert isinstance(workbench.bottomPanel.activityBar, ItemBar)
+        assert (
+            workbench.bottomPanel.activityBar.orientation() == Qt.Orientation.Horizontal
+        )
 
     def test_state_buttons(self, workbench: WorkbenchWidget) -> None:
         """stateButtons() returns a widget with 4 auto-raise buttons."""
@@ -305,7 +309,7 @@ def test_rapid_alignment_cycling_with_collapses(
     assert wb.rightSidebar.isCollapsed
     assert not wb.isPanelVisible
     assert not wb.leftSidebar.isCollapsed
-    assert wb.leftSidebar.activityBar.activeItem is not None
+    assert wb.leftSidebar.activityBar.activeItem() is not None
 
 
 def test_collapse_all_then_change_alignment(
@@ -349,7 +353,7 @@ def test_drag_restore_does_not_disturb_other_sidebar(
     parent.setSizes(sizes)
     wb._on_splitter_moved()
 
-    assert wb.rightSidebar.activityBar.activeItem is None
+    assert wb.rightSidebar.activityBar.activeItem() is None
 
     # Simulate drag back
     sizes = parent.sizes()

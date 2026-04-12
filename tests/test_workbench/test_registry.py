@@ -26,7 +26,7 @@ class TestRegistryMoveAndReorder:
         # Registry and container must agree on the new order.
         assert w.registry.get_views_in_location(L.LEFT_SIDEBAR) == ["t", "a", "b"]
         assert w.leftSidebar.viewIds == ["t", "a", "b"]
-        assert w.leftSidebar.activityBar.itemIds == ["t", "a", "b"]
+        assert w.leftSidebar.activityBar.itemIds() == ["t", "a", "b"]
         assert w.registry.get_views_in_location(L.PANEL) == []
         assert w.bottomPanel.viewIds == []
 
@@ -45,7 +45,7 @@ class TestRegistryMoveAndReorder:
             "c",
         ]
         assert w.leftSidebar.viewIds == ["a", "t", "b", "c"]
-        assert w.leftSidebar.activityBar.itemIds == ["a", "t", "b", "c"]
+        assert w.leftSidebar.activityBar.itemIds() == ["a", "t", "b", "c"]
 
     def test_indexed_move_append_when_index_none(self, qtbot: QtBot) -> None:
         w = _make_empty_workbench(qtbot)
@@ -66,7 +66,7 @@ class TestRegistryMoveAndReorder:
 
         assert w.registry.get_views_in_location(L.LEFT_SIDEBAR) == ["c", "a", "b"]
         assert w.leftSidebar.viewIds == ["c", "a", "b"]
-        assert w.leftSidebar.activityBar.itemIds == ["c", "a", "b"]
+        assert w.leftSidebar.activityBar.itemIds() == ["c", "a", "b"]
 
     def test_reorder_within_bottom_panel(self, qtbot: QtBot) -> None:
         """Bottom panel uses NavigationBarAdapter, which goes through
@@ -79,19 +79,19 @@ class TestRegistryMoveAndReorder:
 
         assert w.registry.get_views_in_location(L.PANEL) == ["z", "x", "y"]
         assert w.bottomPanel.viewIds == ["z", "x", "y"]
-        assert w.bottomPanel.activityBar.itemIds == ["z", "x", "y"]
+        assert w.bottomPanel.activityBar.itemIds() == ["z", "x", "y"]
 
     def test_reorder_preserves_active_view(self, qtbot: QtBot) -> None:
         w = _make_empty_workbench(qtbot)
         for vid in ("a", "b", "c"):
             w.registerView(_descriptor(vid, location=L.LEFT_SIDEBAR))
         w.setActiveView("b")
-        assert w.leftSidebar.activityBar.activeItem == "b"
+        assert w.leftSidebar.activityBar.activeItem() == "b"
 
         w.registry.reorder_view("b", 0)
 
         # "b" is still the active view even though it moved to index 0.
-        assert w.leftSidebar.activityBar.activeItem == "b"
+        assert w.leftSidebar.activityBar.activeItem() == "b"
         assert w.leftSidebar.viewIds == ["b", "a", "c"]
 
     def test_cross_container_move_activates_moved_view_in_target(
@@ -112,7 +112,7 @@ class TestRegistryMoveAndReorder:
 
         # "t" arrived in LEFT_SIDEBAR and should now be the active
         # view there (replacing "a").
-        assert w.leftSidebar.activityBar.activeItem == "t"
+        assert w.leftSidebar.activityBar.activeItem() == "t"
 
     def test_within_container_reorder_preserves_active_view(self, qtbot: QtBot) -> None:
         """Contrast to the cross-container auto-activate behavior:
@@ -127,7 +127,7 @@ class TestRegistryMoveAndReorder:
         w.registry.reorder_view("c", 0)
 
         # "b" was active and should still be active after the reorder.
-        assert w.leftSidebar.activityBar.activeItem == "b"
+        assert w.leftSidebar.activityBar.activeItem() == "b"
 
     def test_move_respects_can_move_false(self, qtbot: QtBot) -> None:
         w = _make_empty_workbench(qtbot)

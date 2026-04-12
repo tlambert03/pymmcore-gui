@@ -28,10 +28,10 @@ class TestMicroManagerGUI:
         assert gui.configure_mode is not None
 
     def test_mode_switching(self, gui: MicroManagerGUI) -> None:
-        gui._navigation.setCurrentIndex(0)
+        gui.setMode("configure")
         assert gui._mode_stack.currentWidget() is gui.configure_mode
 
-        gui._navigation.setCurrentIndex(1)
+        gui.setMode("acquire")
         assert gui._mode_stack.currentWidget() is gui.acquire_mode
 
     def test_toggle_left_sidebar(self, gui: MicroManagerGUI) -> None:
@@ -40,10 +40,10 @@ class TestMicroManagerGUI:
         assert not wb.leftSidebar.isCollapsed
 
         wb.toggleLeftSidebar()
-        assert wb.leftSidebar.activityBar.activeItem is None
+        assert wb.leftSidebar.activityBar.activeItem() is None
 
         wb.toggleLeftSidebar()
-        assert wb.leftSidebar.activityBar.activeItem is not None
+        assert wb.leftSidebar.activityBar.activeItem() is not None
 
     def test_toggle_right_sidebar(self, gui: MicroManagerGUI) -> None:
         gui.show()
@@ -51,10 +51,10 @@ class TestMicroManagerGUI:
         assert not wb.rightSidebar.isCollapsed
 
         wb.toggleRightSidebar()
-        assert wb.rightSidebar.activityBar.activeItem is None
+        assert wb.rightSidebar.activityBar.activeItem() is None
 
         wb.toggleRightSidebar()
-        assert wb.rightSidebar.activityBar.activeItem is not None
+        assert wb.rightSidebar.activityBar.activeItem() is not None
 
     def test_toggle_panel(self, gui: MicroManagerGUI) -> None:
         gui.show()

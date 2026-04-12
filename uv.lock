@@ -2783,7 +2783,7 @@ wheels = [
 
 [[package]]
 name = "pyqt6-qlementine"
-version = "1.4.3.0rc6"
+version = "1.4.3.0rc7"
 source = { directory = "../PyQlementine/packages/PyQt6-Qlementine" }
 dependencies = [
     { name = "pyqt6" },

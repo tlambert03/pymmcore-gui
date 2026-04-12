@@ -65,8 +65,11 @@ constraint-dependencies = ["chardet<6"]
 
 [tool.uv.sources]
 pyside6-stubs = { git = "https://github.com/tlambert03/PySide6-stubs", rev = "v6.9.1" }
-# TODO: switch to a PyPI release once the sip binding additions
-# (itemAtPos, protected virtuals) land upstream.
+# Local path because we still depend on patch 161 (focus-frame mapTo
+# fixup) for the QPushButton/QLineEdit styling elsewhere in the app.
+# Patches 162-164 and the sip protected-virtual additions are no
+# longer required by the workbench (it owns its own bar widget now)
+# and could be reverted in a follow-up if we move to a PyPI release.
 pyqt6-qlementine = { path = "../PyQlementine/packages/PyQt6-Qlementine" }
 
 [dependency-groups]

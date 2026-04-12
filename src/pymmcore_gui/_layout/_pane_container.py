@@ -13,10 +13,9 @@ from pymmcore_gui._qt.QtWidgets import (
     QWidget,
 )
 
-from ._activity_bar import ActivityBar
 from ._dnd import decode_view_id
 from ._enums import ActivityBarPosition, NavDisplayMode
-from ._navigation_bar import NavigationBarAdapter
+from ._item_bar import ItemBar
 from ._splitter_utils import (
     DEFAULT_SIDEBAR_WIDTH,
     MIN_SIDEBAR_WIDTH,
@@ -113,7 +112,7 @@ class PaneContainer(QWidget):
         self._views: dict[str, _ViewEntry] = {}
         self._default_ab_position = default_ab_position
         self._ab_position = ActivityBarPosition.DEFAULT
-        # Preferred display mode for the NavigationBarAdapter variant.
+        # Preferred display mode for the horizontal-bar variant.
         # Stored at the container level so it survives bar-type swaps
         # (e.g. side → top → side). Default is ``TEXT_ONLY`` — horizontal
         # nav bars are typically tab-strip style where labels are the
@@ -130,7 +129,7 @@ class PaneContainer(QWidget):
         self._combined_layout.setSpacing(0)
 
         # Create initial activity bar based on default position
-        self._activity_bar: ActivityBar | NavigationBarAdapter = self._make_bar()
+        self._activity_bar: ItemBar = self._make_bar()
         self._wire_bar()
 
         # Enable context menu on stack
@@ -140,7 +139,7 @@ class PaneContainer(QWidget):
     # ---- public API -------------------------------------------------------
 
     @property
-    def activityBar(self) -> ActivityBar | NavigationBarAdapter:
+    def activityBar(self) -> ItemBar:
         return self._activity_bar
 
     @property
@@ -188,7 +187,7 @@ class PaneContainer(QWidget):
         self._activity_bar.setParent(None)
         self._stack.setParent(None)
 
-        self._activity_bar.collapsible = pos == "side"
+        self._activity_bar.setCollapsible(pos == "side")
 
         if pos == "top":
             self._combined_layout.addWidget(self._activity_bar)
@@ -321,7 +320,7 @@ class PaneContainer(QWidget):
     def toggle(self) -> None:
         """Toggle visibility. Show first/active view, or collapse."""
         if self.isCollapsed:
-            active = self._activity_bar.activeItem
+            active = self._activity_bar.activeItem()
             if active:
                 self.activate(active)
             else:
@@ -352,16 +351,16 @@ class PaneContainer(QWidget):
         return self.resolvedAbPosition in ("top", "bottom")
 
     def _is_horizontal(self) -> bool:
-        return isinstance(self._activity_bar, NavigationBarAdapter)
+        return self._activity_bar.orientation() == Qt.Orientation.Horizontal
 
-    def _make_bar(self) -> ActivityBar | NavigationBarAdapter:
+    def _make_bar(self) -> ItemBar:
         if self._needs_horizontal():
-            bar = NavigationBarAdapter(self)
+            bar = ItemBar(orientation=Qt.Orientation.Horizontal, parent=self)
             # Reapply the user's preferred nav display mode so it
             # survives bar-type swaps (e.g. side → top → side).
             bar.setDisplayMode(self._nav_display_mode)
             return bar
-        return ActivityBar(parent=self)
+        return ItemBar(orientation=Qt.Orientation.Vertical, parent=self)
 
     def _wire_bar(self) -> None:
         self._activity_bar.itemToggled.connect(self.viewToggled)
@@ -376,7 +375,7 @@ class PaneContainer(QWidget):
             return
 
         # Save active state from old bar
-        active = self._activity_bar.activeItem
+        active = self._activity_bar.activeItem()
 
         # Destroy old bar
         self._activity_bar.setParent(None)
@@ -427,10 +426,9 @@ class PaneContainer(QWidget):
             group.addAction(action)
             ab_menu.addAction(action)
 
-        # Display mode submenu — only meaningful for the horizontal
-        # NavigationBarAdapter (the vertical ActivityBar is
-        # icons-only by convention).
-        if isinstance(self._activity_bar, NavigationBarAdapter):
+        # Display mode submenu — only meaningful for horizontal bars
+        # (vertical activity bars are icons-only by convention).
+        if self._activity_bar.orientation() == Qt.Orientation.Horizontal:
             display_menu = menu.addMenu("Display")
             display_group = QActionGroup(display_menu)
             display_group.setExclusive(True)
@@ -461,7 +459,7 @@ class PaneContainer(QWidget):
         action: QAction = self.sender()  # type: ignore[assignment,unused-ignore]
         mode: NavDisplayMode = action.data()
         self._nav_display_mode = mode
-        if isinstance(self._activity_bar, NavigationBarAdapter):
+        if self._activity_bar.orientation() == Qt.Orientation.Horizontal:
             self._activity_bar.setDisplayMode(mode)
 
 

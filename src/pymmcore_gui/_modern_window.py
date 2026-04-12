@@ -6,7 +6,6 @@ from pathlib import Path
 from pymmcore_plus import CMMCorePlus
 from superqt import QIconifyIcon
 
-from pymmcore_gui._qt.Qlementine import NavigationBar  # type: ignore[attr-defined]
 from pymmcore_gui._qt.QtCore import Qt
 from pymmcore_gui._qt.QtGui import QIcon
 from pymmcore_gui._qt.QtWidgets import (
@@ -21,6 +20,7 @@ from pymmcore_gui._qt.QtWidgets import (
 )
 
 from ._layout import (
+    ItemBar,
     PanelAlignment,
     ViewContainerLocation,
     ViewDescriptor,
@@ -161,14 +161,17 @@ class MicroManagerGUI(QMainWindow):
         self._mode_stack.addWidget(self._configure_mode)
         self._mode_stack.addWidget(self._acquire_mode)
 
-        # ---- navigation bar (mode switcher) ----
-        self._navigation = NavigationBar()
-        self._navigation.setItemsShouldExpand(False)
-        self._navigation.addItem("Configure")
-        self._navigation.addItem("Acquire")
-        self._navigation.setCurrentIndex(0)  # start on Acquire
+        # ---- mode switcher (top bar) ----
+        # ItemBar in horizontal text-only mode is a perfect fit: a
+        # mutually-exclusive list of two text labels with an animated
+        # selection underline.
+        self._navigation = ItemBar(orientation=Qt.Orientation.Horizontal)
+        self._navigation.setCollapsible(False)  # one mode is always active
+        self._navigation.addItem("configure", "Configure")
+        self._navigation.addItem("acquire", "Acquire")
+        self._navigation.setActiveSilent("configure")
         self._mode_stack.setCurrentIndex(0)
-        self._navigation.currentIndexChanged.connect(self._on_mode_changed)  # pyright: ignore[reportAttributeAccessIssue]
+        self._navigation.itemToggled.connect(self._on_mode_changed)
 
         # ---- layout ----
         top_row = QHBoxLayout()
@@ -193,27 +196,21 @@ class MicroManagerGUI(QMainWindow):
         self.resize(1200, 800)
 
     # ---- public API -------------------------------------------------------
-    def setMode(self, mode: str | int) -> None:
-        """Set the current mode.
+    _MODE_IDS = ("configure", "acquire")
 
-        Parameters
-        ----------
-        mode : str
-            The mode to switch to. Must be one of "configure" or "acquire".
-        """
+    def setMode(self, mode: str | int) -> None:
+        """Set the current mode ('configure' / 'acquire' or index 0/1)."""
         if isinstance(mode, str):
-            mode = mode.lower()
-            if mode == "configure":
-                idx = 0
-            elif mode == "acquire":
-                idx = 1
-            else:
+            mid = mode.lower()
+            if mid not in self._MODE_IDS:
                 raise ValueError(f"Invalid mode: {mode!r}")
         elif isinstance(mode, int):
-            idx = mode
+            if not (0 <= mode < len(self._MODE_IDS)):
+                raise ValueError(f"Invalid mode index: {mode}")
+            mid = self._MODE_IDS[mode]
         else:
             raise TypeError(f"Mode must be a string or integer, got {type(mode)}")
-        self._navigation.setCurrentIndex(idx)
+        self._navigation.setActive(mid)
 
     @property
     def mmcore(self) -> CMMCorePlus:
@@ -229,8 +226,9 @@ class MicroManagerGUI(QMainWindow):
 
     # ---- internals --------------------------------------------------------
 
-    def _on_mode_changed(self) -> None:
-        self._mode_stack.setCurrentIndex(self._navigation.currentIndex())
+    def _on_mode_changed(self, item_id: str) -> None:
+        if item_id in self._MODE_IDS:
+            self._mode_stack.setCurrentIndex(self._MODE_IDS.index(item_id))
 
 
 # ---- Standalone entry point ------------------------------------------------

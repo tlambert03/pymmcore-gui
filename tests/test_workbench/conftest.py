@@ -2,11 +2,11 @@
 
 Plain helper functions live in ``_helpers.py`` next to this file.
 
-These fixtures build the generic layout primitives (``ActivityBar``,
-``PaneContainer``, ``WorkbenchWidget``) directly, without any
-dependency on ``MicroManagerGUI`` or the app's placeholder view set.
-This keeps the workbench test suite a self-contained exercise of the
-layout pattern itself.
+These fixtures build the generic layout primitives (``PaneContainer``,
+``WorkbenchWidget``) directly, without any dependency on
+``MicroManagerGUI`` or the app's placeholder view set. This keeps the
+workbench test suite a self-contained exercise of the layout pattern
+itself.
 """
 
 from __future__ import annotations
@@ -15,28 +15,13 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from pymmcore_gui._layout import ActivityBar, PaneContainer, WorkbenchWidget
-from pymmcore_gui._qt.QtCore import Qt
+from pymmcore_gui._layout import PaneContainer, WorkbenchWidget
 from pymmcore_gui._qt.QtWidgets import QApplication
 
 from ._helpers import _label, _make_workbench
 
 if TYPE_CHECKING:
     from pytestqt.qtbot import QtBot
-
-
-@pytest.fixture()
-def activity_bar(qtbot: QtBot) -> ActivityBar:
-    ab = ActivityBar()
-    qtbot.addWidget(ab)
-    return ab
-
-
-@pytest.fixture()
-def h_activity_bar(qtbot: QtBot) -> ActivityBar:
-    ab = ActivityBar(Qt.Orientation.Horizontal)
-    qtbot.addWidget(ab)
-    return ab
 
 
 @pytest.fixture()
