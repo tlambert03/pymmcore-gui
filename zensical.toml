@@ -1,0 +1,20 @@
+# pymmcore-gui docs are published as part of the unified pymmcore-plus site,
+# composed by https://github.com/pymmcore-plus/pymmcore-plus.github.io.
+# Theme and global settings live there; this file holds what pymmcore-gui owns.
+[project]
+site_name = "pymmcore-gui"
+site_url = "https://pymmcore-plus.github.io/pymmcore-gui/"
+repo_url = "https://github.com/pymmcore-plus/pymmcore-gui"
+edit_uri = "edit/main/docs/"
+
+[project.plugins.awesome-nav]
+
+[project.plugins.api-autonav]
+modules = ["src/pymmcore_gui"]
+api_root_uri = "api"
+
+[project.plugins.mkdocstrings.handlers.python]
+paths = ["src"]
+
+[project.plugins.mkdocstrings.handlers.python.options]
+docstring_style = "numpy"

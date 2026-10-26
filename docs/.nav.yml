@@ -1,0 +1,7 @@
+# Navigation for pymmcore-gui in the unified docs.  The hub places this
+# folder under Applications, and api/ under API Reference.
+title: pymmcore-gui
+nav:
+  - Overview: index.md
+  - install.md
+  - usage.md
