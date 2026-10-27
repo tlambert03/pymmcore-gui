@@ -28,6 +28,8 @@ repos:
         args: [
             --disable=MD033, # no-inline-html
             --disable=MD036, # no-emphasis-as-heading
+            --disable=MD013, # line-length (tables and URLs can't wrap)
+            --disable=MD046, # code-block-style (admonition bodies are indented)
           ]
 
   - repo: local

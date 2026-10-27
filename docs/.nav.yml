@@ -2,6 +2,6 @@
 # folder under Applications, and api/ under API Reference.
 title: pymmcore-gui
 nav:
-  - Overview: index.md
+  - index.md
   - install.md
   - usage.md

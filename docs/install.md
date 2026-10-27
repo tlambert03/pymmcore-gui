@@ -5,6 +5,8 @@ double-clickable application.
 
 === "Python package"
 
+    You'll need Python 3.11 or newer, and `git` (pip uses it to fetch the code).
+
     ```sh
     # install the latest version from GitHub
     pip install git+https://github.com/pymmcore-plus/pymmcore-gui
@@ -12,8 +14,8 @@ double-clickable application.
     # install Micro-Manager device adapters
     mmcore install
 
-    # run the app
-    mmgui
+    # run the app (with the demo devices)
+    mmgui run --demo-config
     ```
 
     Or run it without installing anything permanently, using
@@ -22,6 +24,12 @@ double-clickable application.
     ```sh
     uvx --from git+https://github.com/pymmcore-plus/pymmcore-gui mmgui
     ```
+
+    pymmcore-gui isn't released on PyPI yet.  (There *is* a `pymmcore-gui` package
+    there, but it's an outdated pre-release, so please install from GitHub.)
+
+    pymmcore-gui requires a specific version of PyQt6, so install it in its own
+    environment rather than next to another Qt application (or a PySide6 project).
 
     !!! tip
 

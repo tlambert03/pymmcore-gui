@@ -1,3 +1,5 @@
+"""Actions: the commands behind pymmcore-gui's menus, toolbars and dock widgets."""
+
 # these MUST be imported here in order to actually instantiate the actions
 # and register them with the ActionInfo registry
 from ._action_info import ActionInfo, ActionKey, WidgetActionInfo
